@@ -1,0 +1,13 @@
+{
+  "name": "hacktrack-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HackTrack backend: rules, auth and SQLite storage. Only the C++ client talks to it.",
+  "type": "module",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node src/index.mjs",
+    "seed": "node src/seed.mjs",
+    "test": "node --test test/server.test.mjs"
+  }
+}
