@@ -3,7 +3,7 @@
 //   2. C++ client, bridge mode (localhost:8080)  <- the website talks only to this
 //   3. Next.js website         (localhost:3000)
 // Ctrl+C stops all three.
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,7 +35,14 @@ let stopping = false;
 function shutdown() {
   if (stopping) return;
   stopping = true;
-  for (const c of children) try { c.kill(); } catch {}
+  for (const c of children) {
+    try {
+      // On Windows `npm run dev` runs inside cmd.exe: kill the whole tree, or
+      // the Next.js server is orphaned and keeps port 3000 busy.
+      if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(c.pid), "/T", "/F"], { stdio: "ignore" });
+      else c.kill();
+    } catch {}
+  }
   setTimeout(() => process.exit(0), 300);
 }
 process.on("SIGINT", shutdown);
