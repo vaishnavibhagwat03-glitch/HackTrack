@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Lenis from "lenis";
-import { Architecture, Capabilities, FinalCTA, Footer, SelfHosted } from "@/components/landing/Sections";
+import { Capabilities, FinalCTA, Footer } from "@/components/landing/Sections";
 import { ExperienceProvider, useEnv } from "./runtime";
 import { Loader } from "./Loader";
 import { SystemNav } from "./SystemNav";
@@ -75,10 +75,8 @@ function Stage() {
         <PanelScene />
         <CollisionScene />
         <AnalyticsScene />
-        <div id="platform" data-nav="07 / ARCHITECTURE" className="relative scroll-mt-14 border-t border-line bg-bg"><Architecture /></div>
-        <div data-nav="08 / FEATURES" className="relative border-t border-line bg-bg"><Capabilities /></div>
-        <div data-nav="09 / RUN IT" className="relative border-t border-line [--color-paper:#0a0a0b] [--color-paper-2:#111113] [--color-ink:#edece8] [&>section]:after:hidden"><SelfHosted /></div>
-        <div data-nav="10 / ENTER" className="ink xp-cta relative bg-bg"><FinalCTA /></div>
+        <div id="features" data-nav="07 / FEATURES" className="relative scroll-mt-14 border-t border-line bg-bg"><Capabilities /></div>
+        <div data-nav="08 / ENTER" className="ink xp-cta relative bg-bg"><FinalCTA /></div>
       </main>
       <div className="ink relative bg-bg"><Footer /></div>
     </div>

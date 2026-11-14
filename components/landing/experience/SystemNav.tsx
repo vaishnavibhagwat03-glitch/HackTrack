@@ -38,8 +38,7 @@ export function SystemNav({ active }: { active: string }) {
 
         <nav aria-label="Primary" className="ml-auto flex items-center gap-5 font-mono text-[11px] uppercase tracking-[0.1em] text-muted">
           <Link href="/gallery" className="hidden transition-colors hover:text-fg md:inline">Projects</Link>
-          <a href="#platform" className="hidden transition-colors hover:text-fg md:inline">Architecture</a>
-          <a href="#self-host" className="hidden transition-colors hover:text-fg md:inline">Run it</a>
+          <a href="#features" className="hidden transition-colors hover:text-fg md:inline">Features</a>
           <Link href="/signin" className={buttonClass("secondary", "sm", "xp-btn")}>Sign in</Link>
         </nav>
       </motion.div>

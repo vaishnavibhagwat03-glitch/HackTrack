@@ -97,7 +97,7 @@ function Hero() {
       <div className="absolute inset-x-0 bottom-0 z-30 mx-auto flex max-w-[1600px] flex-col gap-5 px-5 pb-16 md:flex-row md:items-end md:justify-between md:px-10 md:pb-16">
         <motion.p initial={{ opacity: 0, y: 12 }} animate={introShown ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.8, delay: 1.2, ease: EASE }}
           className="max-w-md text-[15px] leading-relaxed text-fg-2 md:text-[16px]">
-          {EVENT.tagline} A hackathon platform whose every request runs through a C++ client built on hand-written data structures — from first commit to final score.
+          {EVENT.tagline} Teams, submissions, judging and results in one place, from first commit to final score.
         </motion.p>
         <motion.div initial={{ opacity: 0, y: 12 }} animate={introShown ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.8, delay: 1.35, ease: EASE }} className="flex flex-wrap gap-3">
           <Magnetic><Link href="/signin" className={buttonClass("primary", "lg", "xp-btn")}>Enter HackTrack <ArrowRight className="size-4" /></Link></Magnetic>
@@ -116,6 +116,7 @@ const Tile = memo(function Tile({ char, accent, w, h, delay, still }: { char: st
   const [shown, setShown] = useState(" ");
   const [prev, setPrev] = useState(" ");
   const [flip, setFlip] = useState(0);
+  const [landed, setLanded] = useState(0);
   const cur = useRef(" ");
   const target = useRef(char);
   const timer = useRef<number | undefined>(undefined);
@@ -154,14 +155,16 @@ const Tile = memo(function Tile({ char, accent, w, h, delay, still }: { char: st
   };
 
   const size = { fontSize: w * 0.8 };
+  // Tiles are translucent, so the bottom half may show the previous glyph only while a flap is moving.
+  const moving = flip !== landed;
   return (
     <div className="flap" data-accent={accent && shown === char ? "1" : "0"} style={{ width: w, height: h }} onPointerEnter={onEnter} aria-hidden>
       <span className="flap-half top"><span className="flap-glyph" style={size}>{shown}</span></span>
-      <span className={`flap-half bottom ${flip ? "stale" : ""}`}><span className="flap-glyph" style={size}>{flip ? prev : shown}</span></span>
-      {flip > 0 && (
+      <span className={`flap-half bottom ${moving ? "stale" : ""}`}><span className="flap-glyph" style={size}>{moving ? prev : shown}</span></span>
+      {moving && (
         <>
           <span key={`f${flip}`} className="flap-half top fall"><span className="flap-glyph" style={size}>{prev}</span></span>
-          <span key={`d${flip}`} className="flap-half bottom drop"><span className="flap-glyph" style={size}>{shown}</span></span>
+          <span key={`d${flip}`} className="flap-half bottom drop" onAnimationEnd={() => setLanded(flip)}><span className="flap-glyph" style={size}>{shown}</span></span>
         </>
       )}
     </div>
