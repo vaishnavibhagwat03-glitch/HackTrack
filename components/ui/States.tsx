@@ -27,10 +27,10 @@ export function ErrorState({ title = "Could not load this view", body, onRetry, 
   return (
     <Frame
       icon={<AlertTriangle className="size-4 text-danger" />}
-      code="ERR · LOCAL API UNREACHABLE"
+      code="ERR · REQUEST FAILED"
       title={title}
       className={className}
-      body={body ?? "The local instance did not respond. Your data is safe on disk — check that the Dogfood service is running, then retry."}
+      body={body ?? "The HackTrack C++ client did not respond. Check that it is running (hacktrack --bridge) and that the server is up, then retry."}
       action={onRetry && <Button onClick={onRetry}><RotateCw className="size-3" />Retry</Button>}
     />
   );

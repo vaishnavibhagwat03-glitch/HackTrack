@@ -1,4 +1,5 @@
-// Pure scoring logic — no imports so it can be checked with `node scripts/check-scoring.ts`.
+// Scoring maths for the landing animation's illustrative sample only.
+// The real ranking runs in the C++ client (hacktrack-client/src/algo/Ranking.cpp).
 
 export type Criterion = { id: string; weight: number };
 

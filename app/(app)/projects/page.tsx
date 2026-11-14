@@ -5,5 +5,5 @@ import { Gallery } from "@/components/projects/Gallery";
 
 export default function Page() {
   const { user } = useSession();
-  return <Gallery staff={user?.role === "organizer" || user?.role === "admin"} />;
+  return <Gallery staff={user?.role === "admin"} />;
 }

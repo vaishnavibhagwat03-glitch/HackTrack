@@ -7,8 +7,8 @@ import "./globals.css";
 // Fonts ship with the app (geist package) — no runtime font CDN, works offline.
 
 export const metadata: Metadata = {
-  title: { default: "Dogfood 2026 — Build the platform that will judge you", template: "%s · Dogfood 2026" },
-  description: "Open-source, self-hostable hackathon submission and judging platform.",
+  title: { default: "HackTrack — hackathon management through a C++ client", template: "%s · HackTrack" },
+  description: "Hackathon management: a Next.js website, a C++17 client built on hand-written data structures, and a Node + SQLite server.",
 };
 
 export const viewport: Viewport = { themeColor: "#0a0a0b", colorScheme: "dark" };

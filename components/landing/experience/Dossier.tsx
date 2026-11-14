@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import type { MotionValue } from "motion/react";
-import { weightedScore } from "@/lib/scoring";
+import { weightedScore } from "./sample-scoring";
 import { cn, pad } from "@/lib/utils";
 import { Ticks } from "@/components/ui/primitives";
 import { FEATURED, FEATURED_CRITERIA, RUBRIC } from "./story";

@@ -15,6 +15,10 @@ endif()
 if(WIN32)
   add_compile_definitions(_WIN32_WINNT=0x0A00 NOMINMAX)
 endif()
+if(MINGW)
+  # Static runtime: every .exe runs without MSYS2's DLLs on PATH.
+  add_link_options(-static)
+endif()
 
 # Data structures + algorithms: no network code, testable on their own.
 add_library(ht_core STATIC
@@ -45,9 +49,6 @@ endif()
 
 add_executable(hacktrack src/main.cpp)
 target_link_libraries(hacktrack PRIVATE ht_client)
-if(MINGW)
-  target_link_options(hacktrack PRIVATE -static)  # runs without MSYS2 DLLs on PATH
-endif()
 
 add_executable(ht_tests tests/test_ds.cpp)
 target_link_libraries(ht_tests PRIVATE ht_core)

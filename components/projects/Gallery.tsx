@@ -1,17 +1,18 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "motion/react";
 import { Search, SlidersHorizontal, X } from "lucide-react";
-import { PROJECTS, PROJECT_SCORES, TRACKS, teamById, type Project } from "@/lib/data";
-import { useHotkeys, useSimulatedLoad } from "@/lib/hooks";
+import type { Project, Results } from "@/lib/types";
+import { useApi } from "@/lib/useApi";
+import { useSession } from "@/lib/session";
+import { useHotkeys } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { Button, Kbd, Skeleton, fieldClass } from "@/components/ui/primitives";
-import { EmptyState } from "@/components/ui/States";
+import { EmptyState, ErrorState } from "@/components/ui/States";
 import { ProjectCard } from "./ProjectCard";
 
-type Sort = "newest" | "oldest" | "name" | "score";
-const ALL_TECH = [...new Set(PROJECTS.flatMap((p) => p.stack))].sort();
+type Sort = "newest" | "oldest" | "name" | "id" | "score";
 
 function Select({ label, value, onChange, children, id }: { label: string; value: string; onChange: (v: string) => void; children: React.ReactNode; id: string }) {
   return (
@@ -27,9 +28,11 @@ function Select({ label, value, onChange, children, id }: { label: string; value
 }
 
 export function Gallery({ staff = false, hrefBase = "/projects", compactHeader }: { staff?: boolean; hrefBase?: string; compactHeader?: boolean }) {
-  const loading = useSimulatedLoad(500);
   const searchRef = useRef<HTMLInputElement>(null);
+  const { boot } = useSession();
+  const TRACKS = boot?.tracks ?? [];
   const [q, setQ] = useState("");
+  const [debounced, setDebounced] = useState("");
   const [track, setTrack] = useState("all");
   const [status, setStatus] = useState(staff ? "all" : "submitted");
   const [tech, setTech] = useState("all");
@@ -39,33 +42,39 @@ export function Gallery({ staff = false, hrefBase = "/projects", compactHeader }
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   useHotkeys({ "/": () => searchRef.current?.focus() });
+  useEffect(() => { const t = setTimeout(() => setDebounced(q.trim()), 250); return () => clearTimeout(t); }, [q]);
+
+  // Sorting and text search run in the C++ client (merge / quick sort, BST in-order).
+  const serverSort = sort === "name" ? "name" : sort === "id" ? "id" : "recent";
+  const res = useApi<{ projects: Project[]; sort: { algorithm: string; comparisons: number; n: number } }>(
+    `/projects?sort=${serverSort}&track=${track}&q=${encodeURIComponent(debounced)}`, { auth: !hrefBase.startsWith("/gallery") });
+  const ranking = useApi<Results>(staff ? "/results?by=normalized" : null);
+  const score = useMemo(() => new Map((ranking.data?.ranking ?? []).map((r) => [r.projectId, r])), [ranking.data]);
+  const loading = res.loading;
+  const PROJECTS = useMemo(() => res.data?.projects ?? [], [res.data]);
+  const ALL_TECH = useMemo(() => [...new Set(PROJECTS.flatMap((p) => p.stack))].sort(), [PROJECTS]);
 
   const visible = useMemo(() => {
-    const s = q.trim().toLowerCase();
     const list = PROJECTS.filter((p) => {
       if (!staff && p.status !== "submitted") return false;
       if (status !== "all" && p.status !== status) return false;
-      if (track !== "all" && p.trackId !== track) return false;
       if (tech !== "all" && !p.stack.includes(tech)) return false;
-      const n = teamById(p.teamId).members.length;
+      const n = p.team?.members.length ?? 0;
       if (size === "2" && n > 2) return false;
       if (size === "3" && n !== 3) return false;
       if (size === "4" && n < 4) return false;
-      if (staff && +minScore > 0 && (PROJECT_SCORES.get(p.id)?.normalized ?? 0) < +minScore) return false;
-      if (!s) return true;
-      return `${p.name} ${p.tagline} ${p.stack.join(" ")} ${teamById(p.teamId).name} ${p.code}`.toLowerCase().includes(s);
+      if (staff && +minScore > 0 && (score.get(p.id)?.normalized ?? 0) < +minScore) return false;
+      return true;
     });
-    const t = (p: Project) => p.submittedAt ?? p.updatedAt;
-    return list.sort((a, b) =>
-      sort === "name" ? a.name.localeCompare(b.name)
-      : sort === "oldest" ? t(a).localeCompare(t(b))
-      : sort === "score" ? (PROJECT_SCORES.get(b.id)?.normalized ?? 0) - (PROJECT_SCORES.get(a.id)?.normalized ?? 0)
-      : t(b).localeCompare(t(a)));
-  }, [q, track, status, tech, size, minScore, sort, staff]);
+    // Already sorted by the C++ client; "oldest" is newest reversed, "score" follows the heap's ranking.
+    if (sort === "oldest") return list.reverse();
+    if (sort === "score") return list.sort((a, b) => (score.get(a.id)?.rank ?? 1e9) - (score.get(b.id)?.rank ?? 1e9));
+    return list;
+  }, [PROJECTS, status, tech, size, minScore, sort, staff, score]);
 
   const active = [track !== "all", staff && status !== "all", tech !== "all", size !== "any", +minScore > 0].filter(Boolean).length;
   const reset = () => { setQ(""); setTrack("all"); setStatus(staff ? "all" : "submitted"); setTech("all"); setSize("any"); setMinScore("0"); };
-  const total = staff ? PROJECTS.length : PROJECTS.filter((p) => p.status === "submitted").length;
+  const total = boot ? (staff ? boot.counts.projects : boot.counts.submitted) : PROJECTS.length;
 
   return (
     <div>
@@ -75,9 +84,10 @@ export function Gallery({ staff = false, hrefBase = "/projects", compactHeader }
             <p className="label">Public gallery · {total} {staff ? "projects" : "submissions"}</p>
             <h1 className="mt-2 text-[clamp(3rem,8vw,6.5rem)] font-semibold leading-[0.85] tracking-[-0.055em]">PROJECTS</h1>
           </div>
-          <p className="font-mono text-[12px] tabular text-muted" aria-live="polite">
-            SHOWING <span className="text-fg">{visible.length}</span> / {total}
-          </p>
+          <div className="text-right font-mono text-[12px] tabular text-muted" aria-live="polite">
+            <p>SHOWING <span className="text-fg">{visible.length}</span> / {total}</p>
+            {res.data && <p className="mt-1 text-[10.5px] uppercase">C++ {res.data.sort.algorithm} · {res.data.sort.comparisons} comparisons</p>}
+          </div>
         </header>
       )}
 
@@ -116,14 +126,16 @@ export function Gallery({ staff = false, hrefBase = "/projects", compactHeader }
             </Select>
           )}
           <Select id="f-sort" label="Sort" value={sort} onChange={(v) => setSort(v as Sort)}>
-            <option value="newest">Newest</option><option value="oldest">Oldest</option><option value="name">Name A–Z</option>
+            <option value="newest">Newest (quick sort)</option><option value="oldest">Oldest</option><option value="name">Name A–Z (merge sort)</option><option value="id">ID (BST in-order)</option>
             {staff && <option value="score">Score</option>}
           </Select>
           {active > 0 && <Button variant="ghost" onClick={reset}><X className="size-3" />Clear {active}</Button>}
         </div>
       </div>
 
-      {loading ? (
+      {res.error ? (
+        <ErrorState body={res.error.message} onRetry={res.reload} />
+      ) : loading ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 3xl:grid-cols-4" aria-busy="true" aria-label="Loading projects">
           {Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-[430px]" />)}
         </div>

@@ -37,6 +37,13 @@ int runBridge(HackTrack& app, int port, const std::string& allowOrigin) {
     httplib::Server srv;
     std::mutex mu;  // the data structures are not thread-safe: one request at a time
 
+    // Browsers keep up to 6 idle keep-alive connections per tab, and each one
+    // occupies a worker thread until it times out. A larger pool and a short
+    // keep-alive stop several open tabs from starving the server.
+    srv.new_task_queue = [] { return new httplib::ThreadPool(64); };
+    srv.set_keep_alive_timeout(1);
+    srv.set_keep_alive_max_count(50);
+
     using Fn = std::function<json(const httplib::Request&, const std::string& token)>;
     auto wrap = [&](Fn fn) {
         return [&, fn](const httplib::Request& req, httplib::Response& res) {

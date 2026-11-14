@@ -4,7 +4,8 @@ import Link from "next/link";
 import { forwardRef } from "react";
 import { motion } from "motion/react";
 import { ArrowUpRight } from "lucide-react";
-import { teamById, trackById, type Project } from "@/lib/data";
+import type { Project } from "@/lib/types";
+import { useSession } from "@/lib/session";
 import { fmtUTC } from "@/lib/utils";
 import { ProjectPreview } from "@/components/ui/ProjectPreview";
 import { Badge } from "@/components/ui/primitives";
@@ -14,7 +15,8 @@ export const ProjectCard = forwardRef<HTMLDivElement, { project: Project; index?
   { project: p, index = 0, href },
   ref,
 ) {
-  const team = teamById(p.teamId);
+  const { boot } = useSession();
+  const trackCode = boot?.tracks.find((t) => t.id === p.trackId)?.code ?? "NO TRACK";
   return (
     <motion.div
       ref={ref}
@@ -41,7 +43,7 @@ export const ProjectCard = forwardRef<HTMLDivElement, { project: Project; index?
             <ProjectPreview seed={p.slug} animated />
           </div>
           <span className="absolute bottom-2 left-2 rounded-xs border border-line-strong bg-bg/80 px-1.5 py-0.5 font-mono text-[9.5px] tracking-[0.1em] text-fg-2 backdrop-blur">
-            {trackById(p.trackId).code}
+            {trackCode}
           </span>
         </div>
 
@@ -52,7 +54,7 @@ export const ProjectCard = forwardRef<HTMLDivElement, { project: Project; index?
           <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-line pt-3">
             <div className="min-w-0">
               <dt className="label">Team</dt>
-              <dd className="mt-0.5 truncate text-[12.5px] text-fg">{team.name} <span className="font-mono text-[10.5px] text-muted">/{team.members.length}</span></dd>
+              <dd className="mt-0.5 truncate text-[12.5px] text-fg">{p.team?.name ?? "—"} <span className="font-mono text-[10.5px] text-muted">/{p.team?.members.length ?? 0}</span></dd>
             </div>
             <div className="min-w-0">
               <dt className="label">Submitted</dt>

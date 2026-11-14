@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Lenis from "lenis";
-import { Capabilities, FinalCTA, Footer, SelfHosted } from "@/components/landing/Sections";
+import { Architecture, Capabilities, FinalCTA, Footer, SelfHosted } from "@/components/landing/Sections";
 import { ExperienceProvider, useEnv } from "./runtime";
 import { Loader } from "./Loader";
 import { SystemNav } from "./SystemNav";
@@ -12,7 +12,6 @@ import { JudgingScene } from "./Judging";
 import { PanelScene } from "./Panel";
 import { CollisionScene } from "./Collision";
 import { AnalyticsScene } from "./Analytics";
-import { RevealScene } from "./Reveal";
 import "./experience.css";
 
 /**
@@ -76,9 +75,9 @@ function Stage() {
         <PanelScene />
         <CollisionScene />
         <AnalyticsScene />
-        <RevealScene />
-        <div data-nav="08 / SPECIFICATION" className="relative border-t border-line bg-bg"><Capabilities /></div>
-        <div data-nav="09 / SELF-HOSTED" className="relative border-t border-line [--color-paper:#0a0a0b] [--color-paper-2:#111113] [--color-ink:#edece8] [&>section]:after:hidden"><SelfHosted /></div>
+        <div id="platform" data-nav="07 / ARCHITECTURE" className="relative scroll-mt-14 border-t border-line bg-bg"><Architecture /></div>
+        <div data-nav="08 / FEATURES" className="relative border-t border-line bg-bg"><Capabilities /></div>
+        <div data-nav="09 / RUN IT" className="relative border-t border-line [--color-paper:#0a0a0b] [--color-paper-2:#111113] [--color-ink:#edece8] [&>section]:after:hidden"><SelfHosted /></div>
         <div data-nav="10 / ENTER" className="ink xp-cta relative bg-bg"><FinalCTA /></div>
       </main>
       <div className="ink relative bg-bg"><Footer /></div>

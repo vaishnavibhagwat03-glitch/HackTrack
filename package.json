@@ -1,13 +1,20 @@
 {
-  "name": "dogfood-frontend",
-  "version": "0.1.0",
+  "name": "hacktrack",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "check": "node scripts/check-scoring.mts"
+    "start:all": "node scripts/start-all.mjs",
+    "server": "npm --prefix server start",
+    "seed": "npm --prefix server run seed",
+    "client:build": "cmake -S hacktrack-client -B hacktrack-client/build -G Ninja && cmake --build hacktrack-client/build",
+    "client:demo": "node scripts/run-client.mjs --demo",
+    "client:bench": "node scripts/run-client.mjs --bench",
+    "client:console": "node scripts/run-client.mjs --console",
+    "test": "npm --prefix server test && node scripts/run-client.mjs --tests && node scripts/integration.mjs"
   },
   "dependencies": {
     "geist": "^1.7.2",
@@ -25,5 +32,6 @@
     "@types/react-dom": "^19.3.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3"
-  }
+  },
+  "description": "HackTrack: Next.js website -> C++17 client (hand-written data structures) -> Node + SQLite server"
 }

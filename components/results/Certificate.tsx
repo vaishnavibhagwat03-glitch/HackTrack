@@ -1,7 +1,6 @@
-import { EVENT } from "@/lib/data";
 import { cn, hash, mulberry32 } from "@/lib/utils";
 
-export type CertData = { kind: string; title: string; name: string; forLine: string; detail: string; id: string; issued: string };
+export type CertData = { kind: string; title: string; name: string; forLine: string; detail: string; id: string; issued: string; event: string };
 
 export function verificationId(seed: string) {
   const h = hash(seed).toString(16).toUpperCase().padStart(8, "0");
@@ -48,8 +47,8 @@ export function Certificate({ c, className }: { c: CertData; className?: string 
       <div className="relative flex h-full flex-col justify-between p-[6cqw]">
         <div className="flex items-start justify-between">
           <div>
-            <p className="font-mono text-[1.5cqw] font-semibold tracking-[0.3em]">DOGFOOD 2026</p>
-            <p className="mt-[0.6cqw] font-mono text-[1.1cqw] tracking-[0.15em] text-ink/50">{EVENT.id} · {c.kind}</p>
+            <p className="font-mono text-[1.5cqw] font-semibold uppercase tracking-[0.3em]">{c.event}</p>
+            <p className="mt-[0.6cqw] font-mono text-[1.1cqw] tracking-[0.15em] text-ink/50">HACKTRACK · {c.kind}</p>
           </div>
         </div>
 
@@ -65,8 +64,8 @@ export function Certificate({ c, className }: { c: CertData; className?: string 
         <div className="flex items-end justify-between gap-[3cqw]">
           <div className="flex gap-[5cqw]">
             <div>
-              <p className="mb-[0.6cqw] text-[1.8cqw] italic">Theo Marchetti</p>
-              <p className="border-t border-ink/30 pt-[0.6cqw] font-mono text-[1cqw] uppercase tracking-[0.15em] text-ink/50">Lead organizer</p>
+              <p className="mb-[0.6cqw] text-[1.8cqw] italic">Event Admin</p>
+              <p className="border-t border-ink/30 pt-[0.6cqw] font-mono text-[1cqw] uppercase tracking-[0.15em] text-ink/50">Organising committee</p>
             </div>
             <div>
               <p className="mb-[0.6cqw] font-mono text-[1.6cqw]">{c.issued}</p>
@@ -77,7 +76,7 @@ export function Certificate({ c, className }: { c: CertData; className?: string 
             <div className="text-right font-mono text-[1cqw] uppercase tracking-[0.12em] text-ink/60">
               <p>Verification ID</p>
               <p className="mt-[0.3cqw] text-[1.3cqw] text-ink">{c.id}</p>
-              <p className="mt-[0.3cqw]">{EVENT.instance}/verify</p>
+              <p className="mt-[0.3cqw]">HackTrack · hash-derived</p>
             </div>
             <VerifyMatrix seed={c.id} className="size-[10cqw]" />
           </div>

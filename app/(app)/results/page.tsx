@@ -5,5 +5,5 @@ import { Results } from "@/components/results/Results";
 
 export default function Page() {
   const { user } = useSession();
-  return user ? <Results user={user} /> : null;
+  return user ? <Results key={user.id} user={user} /> : null;
 }

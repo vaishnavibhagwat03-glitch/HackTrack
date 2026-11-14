@@ -1,11 +1,11 @@
-// Everything the landing story shows is derived from the same seed data and
-// scoring code the product uses. Nothing here is invented for marketing.
+// The landing story animates an illustrative sample event (sample-data.ts).
+// The live application gets all of its data from the C++ client instead.
 
 import {
   ASSIGNMENTS, JUDGES, LEADERBOARD, PROJECT_SCORES, PROJECTS, RAW_SCORES, RUBRIC, SUBMITTED, TRACKS,
   teamById, trackById,
-} from "@/lib/data";
-import { normalize, weightedScore } from "@/lib/scoring";
+} from "./sample-data";
+import { normalize, weightedScore } from "./sample-scoring";
 import { pad } from "@/lib/utils";
 
 export { RUBRIC, TRACKS, JUDGES, PROJECTS, SUBMITTED, LEADERBOARD };

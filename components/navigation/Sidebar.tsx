@@ -3,55 +3,74 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "motion/react";
-import { ChevronsUpDown, Check, Plus, LogOut, Repeat, Settings2 } from "lucide-react";
+import { ChevronsUpDown, LogOut, Repeat, Settings2 } from "lucide-react";
 import { navFor, ROLE_LABEL } from "@/lib/rbac";
-import { EVENT, EVENTS, type User } from "@/lib/data";
+import type { User } from "@/lib/types";
 import { useSession } from "@/lib/session";
-import { cn } from "@/lib/utils";
+import { useApi } from "@/lib/useApi";
+import { cn, fmtUTC } from "@/lib/utils";
 import { Logo, LogoMark } from "@/components/ui/Logo";
 import { Popover, MenuItem } from "@/components/ui/Popover";
 import { Avatar, Badge, Kbd, StatusDot } from "@/components/ui/primitives";
 
 export function EventSwitcher({ user }: { user: User }) {
   const router = useRouter();
-  const staff = user.role === "organizer" || user.role === "admin";
+  const { boot } = useSession();
+  const e = boot?.event;
+  const phase = !e ? "…" : e.resultsPublished ? "RESULTS" : e.judgingOpen ? "JUDGING" : "BUILDING";
   return (
     <Popover
-      label="Switch event"
+      label="Event"
       className="w-64"
       trigger={({ toggle, open }) => (
         <button onClick={toggle} aria-expanded={open}
           className="group flex w-full items-center gap-3 rounded-sm border border-line bg-white/[0.02] px-2.5 py-2 text-left transition-colors hover:border-line-strong">
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-xs bg-accent font-mono text-[10px] font-bold text-accent-ink">26</span>
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-xs bg-accent font-mono text-[10px] font-bold text-accent-ink">HT</span>
           <span className="hidden min-w-0 flex-1 lg:block">
-            <span className="block truncate text-[13px] font-medium text-fg">{EVENT.name}</span>
-            <span className="flex items-center gap-1.5 font-mono text-[10px] text-muted"><StatusDot tone="ok" pulse />LIVE · {EVENT.id}</span>
+            <span className="block truncate text-[13px] font-medium text-fg">{e?.name ?? "HackTrack"}</span>
+            <span className="flex items-center gap-1.5 font-mono text-[10px] text-muted"><StatusDot tone="ok" pulse />LIVE · {phase}</span>
           </span>
           <ChevronsUpDown className="hidden size-3.5 text-muted group-hover:text-fg lg:block" />
         </button>
       )}
     >
       {(close) => (
-        <div>
-          <p className="label px-2.5 pb-1 pt-2">Events on this instance</p>
-          {EVENTS.map((e) => (
-            <MenuItem key={e.id} disabled={e.status === "ARCHIVE"} onClick={close}>
-              <span className="flex-1">
-                <span className="block text-fg">{e.name}</span>
-                <span className="font-mono text-[10px] text-muted">{e.id}{e.status === "ARCHIVE" && " · NOT IMPORTED"}</span>
-              </span>
-              {e.status === "LIVE" ? <Check className="size-3.5 text-accent" /> : <Badge>ARCHIVE</Badge>}
-            </MenuItem>
-          ))}
-          {staff && (
+        <div className="p-1">
+          <p className="label px-2.5 pb-1 pt-2">Event schedule (UTC)</p>
+          {e && (
+            <dl className="px-2.5 pb-2 font-mono text-[11px]">
+              <div className="flex justify-between py-1"><dt className="text-muted">Starts</dt><dd className="text-fg-2">{fmtUTC(e.startsAt)}</dd></div>
+              <div className="flex justify-between py-1"><dt className="text-muted">Deadline</dt><dd className="text-fg-2">{fmtUTC(e.deadline)}</dd></div>
+              <div className="flex justify-between py-1"><dt className="text-muted">Results</dt><dd className="text-fg-2">{fmtUTC(e.resultsAt)}</dd></div>
+            </dl>
+          )}
+          {user.role === "admin" && (
             <>
               <div className="my-1 h-px bg-line" />
-              <MenuItem onClick={() => { close(); router.push("/admin"); }}><Plus className="size-3.5" />Create event</MenuItem>
+              <MenuItem onClick={() => { close(); router.push("/admin"); }}><Settings2 className="size-3.5" />Event settings</MenuItem>
             </>
           )}
         </div>
       )}
     </Popover>
+  );
+}
+
+/** Live status of the C++ client and, through it, the server. */
+function ClientStatus() {
+  const { data, error } = useApi<{ client: { ok: boolean }; server: { ok: boolean; ms: number }; serverAddress: string }>("/health", { pollMs: 10000 });
+  const connecting = !data && !error;
+  const clientOk = !error && !!data;
+  const serverOk = clientOk && data!.server.ok;
+  return (
+    <div className="hidden rounded-sm border border-line bg-white/[0.015] px-2.5 py-2 lg:block" title="Website → C++ client → server">
+      <p className="flex items-center gap-2 font-mono text-[10.5px] tracking-[0.06em] text-fg-2">
+        <StatusDot tone={clientOk ? "ok" : connecting ? "warn" : "danger"} pulse={clientOk} />C++ CLIENT {clientOk ? "ONLINE" : connecting ? "CONNECTING…" : "OFFLINE"}
+      </p>
+      <p className="mt-1 flex items-center gap-2 font-mono text-[10px] text-muted">
+        <StatusDot tone={serverOk ? "ok" : connecting ? "warn" : "danger"} />SERVER {serverOk ? `OK · ${Math.round(data!.server.ms)} ms` : connecting ? "CHECKING…" : "UNREACHABLE"}
+      </p>
+    </div>
   );
 }
 
@@ -86,7 +105,7 @@ export function UserMenu({ user, side = "top", compact }: { user: User; side?: "
             <Badge tone="accent" className="mt-2">{ROLE_LABEL[user.role]}</Badge>
           </div>
           <div className="my-1 h-px bg-line" />
-          {(user.role === "admin" || user.role === "organizer") && (
+          {user.role === "admin" && (
             <MenuItem onClick={() => { close(); router.push("/admin"); }}><Settings2 className="size-3.5" />Settings</MenuItem>
           )}
           <MenuItem onClick={() => { close(); signOut(); router.push("/signin"); }}><Repeat className="size-3.5" />Switch account</MenuItem>
@@ -108,7 +127,7 @@ export function Sidebar({ user }: { user: User }) {
   return (
     <aside className="sticky top-0 hidden h-dvh w-16 shrink-0 flex-col border-r border-line bg-bg md:flex lg:w-60">
       <div className="flex h-14 items-center border-b border-line px-5">
-        <Link href="/" aria-label="Dogfood home">
+        <Link href="/" aria-label="HackTrack home">
           <Logo className="hidden lg:inline-flex" />
           <LogoMark className="text-fg lg:hidden" />
         </Link>
@@ -148,10 +167,7 @@ export function Sidebar({ user }: { user: User }) {
       </nav>
 
       <div className="space-y-2 border-t border-line p-3">
-        <div className="hidden rounded-sm border border-line bg-white/[0.015] px-2.5 py-2 lg:block" title="All data lives on this machine">
-          <p className="flex items-center gap-2 font-mono text-[10.5px] tracking-[0.06em] text-fg-2"><StatusDot tone="ok" pulse />LOCAL INSTANCE</p>
-          <p className="mt-1 flex justify-between font-mono text-[10px] text-muted"><span>{EVENT.instance}</span><span>{EVENT.version}</span></p>
-        </div>
+        <ClientStatus />
         <div className="flex items-center justify-between gap-1">
           <div className="min-w-0 flex-1"><UserMenu user={user} /></div>
         </div>

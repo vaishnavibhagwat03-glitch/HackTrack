@@ -3,18 +3,21 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
-import { AlertTriangle, Check, ImagePlus, Lock, Send, X } from "lucide-react";
-import { EVENT, TRACKS, projectById, teamById, type User } from "@/lib/data";
+import { AlertTriangle, Check, Lock, Send, X } from "lucide-react";
+import type { Project, Team, Track } from "@/lib/types";
+import { api, errorMessage } from "@/lib/api";
+import { useApi } from "@/lib/useApi";
 import { useNow } from "@/lib/hooks";
 import { cn, fmtUTC, hms, relativeTime } from "@/lib/utils";
-import { Avatar, Badge, Button, Field, Panel, fieldClass } from "@/components/ui/primitives";
+import { Avatar, Badge, Button, Field, Panel, Skeleton, buttonClass, fieldClass } from "@/components/ui/primitives";
+import { EmptyState, ErrorState } from "@/components/ui/States";
 import { useToast } from "@/components/ui/Toast";
 
 type Draft = {
   name: string; tagline: string; description: string; stack: string[]; repo: string; demo: string; trackId: string;
-  screenshots: { name: string; url: string }[]; submittedAt: string | null;
 };
 type Errors = Partial<Record<keyof Draft, string>>;
+type Sub = { deadline: string; locked: boolean; tracks: Track[]; team: Team | null; project: Project | null };
 
 const isUrl = (s: string) => /^(https?:\/\/)?[\w.-]+\.[a-z]{2,}(\/\S*)?$/i.test(s.trim());
 
@@ -30,46 +33,53 @@ function validate(d: Draft): Errors {
   return e;
 }
 
-export function SubmissionBuilder({ user }: { user: User }) {
+export function SubmissionBuilder() {
+  const sub = useApi<Sub>("/submission");
+  if (sub.error) return <ErrorState body={sub.error.message} onRetry={sub.reload} />;
+  if (!sub.data) return <Skeleton className="h-[70vh]" />;
+  if (!sub.data.team) return <EmptyState code="NO TEAM" title="Join a team first" body="Every submission belongs to a team."
+    action={<Link href="/teams" className={buttonClass("primary")}>Go to team</Link>} />;
+  return <Builder sub={sub.data} />;
+}
+
+function Builder({ sub }: { sub: Sub }) {
   const toast = useToast();
   const now = useNow();
-  const team = teamById(user.teamId!);
-  const project = projectById(team.projectId)!;
-  const storageKey = `dogfood.submission.${project.id}`;
+  const team = sub.team!;
+  const project = sub.project;
+  const TRACKS = sub.tracks;
+  const EVENT = { deadline: sub.deadline };
 
   const [d, setD] = useState<Draft>({
-    name: project.name, tagline: project.tagline, description: project.description, stack: project.stack,
-    repo: project.repo, demo: "", trackId: project.trackId, screenshots: [], submittedAt: null,
+    name: project?.name ?? "", tagline: project?.tagline ?? "", description: project?.description ?? "", stack: project?.stack ?? [],
+    repo: project?.repo ?? "", demo: project?.demo ?? "", trackId: project?.trackId ?? "",
   });
-  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [submittedAt, setSubmittedAt] = useState<string | null>(project?.status === "submitted" ? project.submittedAt : null);
+  const [savedAt, setSavedAt] = useState<number | null>(project ? Date.parse(project.updatedAt) : null);
+  const [saveError, setSaveError] = useState<string>();
   const [errors, setErrors] = useState<Errors>({});
   const [confirming, setConfirming] = useState(false);
   const [tech, setTech] = useState("");
-  const hydrated = useRef(false);
+  const first = useRef(true);
 
+  // Autosave (debounced) through the C++ client: PUT /api/submission.
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (raw) { const s = JSON.parse(raw); setD((x) => ({ ...x, ...s.draft, screenshots: [] })); setSavedAt(s.savedAt); }
-    } catch {}
-    hydrated.current = true;
-  }, [storageKey]);
-
-  // Autosave (debounced). Screenshots stay in memory — files upload on submit in production.
-  useEffect(() => {
-    if (!hydrated.current) return;
-    const id = setTimeout(() => {
-      const t = Date.now();
-      try { localStorage.setItem(storageKey, JSON.stringify({ draft: { ...d, screenshots: [] }, savedAt: t })); } catch {}
-      setSavedAt(t);
-    }, 800);
+    if (first.current) { first.current = false; return; }
+    if (d.name.trim().length < 1) return;
+    const id = setTimeout(async () => {
+      try {
+        await api("/submission", { method: "PUT", body: d });
+        setSavedAt(Date.now());
+        setSaveError(undefined);
+      } catch (e) { setSaveError(errorMessage(e)); }
+    }, 900);
     return () => clearTimeout(id);
-  }, [d, storageKey]);
+  }, [d]);
 
   const deadline = Date.parse(EVENT.deadline);
   const left = now == null ? null : deadline - now;
   const closed = left != null && left <= 0;
-  const locked = !!d.submittedAt || closed;
+  const locked = closed;
   const urgency = left == null ? "calm" : left < 3600e3 ? "critical" : left < 6 * 3600e3 ? "warn" : "calm";
 
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => {
@@ -83,7 +93,7 @@ export function SubmissionBuilder({ user }: { user: User }) {
     setTech("");
   };
 
-  const submit = () => {
+  const submit = async () => {
     const e = validate(d);
     setErrors(e);
     if (Object.keys(e).length) {
@@ -93,9 +103,15 @@ export function SubmissionBuilder({ user }: { user: User }) {
       return;
     }
     if (!confirming) { setConfirming(true); setTimeout(() => setConfirming(false), 5000); return; }
-    set("submittedAt", new Date().toISOString());
     setConfirming(false);
-    toast({ tone: "ok", title: "Submission locked", body: "SUBMISSION_LOCKED · recorded in audit trail" });
+    try {
+      await api("/submission", { method: "PUT", body: d });
+      const p = await api<Project>("/submission/submit", { method: "POST" });
+      setSubmittedAt(p.submittedAt);
+      toast({ tone: "ok", title: "Project submitted", body: "SUBMISSION_SUBMITTED · recorded in the audit ledger" });
+    } catch (x) {
+      toast({ tone: "warn", title: "Not submitted", body: errorMessage(x) });
+    }
   };
 
   const checklist: [string, boolean][] = [
@@ -104,31 +120,29 @@ export function SubmissionBuilder({ user }: { user: User }) {
     ["Technologies", d.stack.length > 0],
     ["Repository", isUrl(d.repo)],
     ["Demo link", isUrl(d.demo)],
-    ["Screenshots", d.screenshots.length > 0],
     ["Track", !!d.trackId],
   ];
 
   return (
     <div className="grid gap-10 lg:grid-cols-[1fr_320px]">
       <div className="min-w-0">
-        <p className="label">{project.code} · Submission builder</p>
+        <p className="label">{project?.code ?? "NEW PROJECT"} · Submission builder</p>
         <h1 className="mt-2 text-[clamp(2.2rem,5vw,3.5rem)] font-semibold leading-[0.9] tracking-[-0.04em]">{d.name || "Untitled project"}</h1>
 
         <AnimatePresence>
-          {d.submittedAt && (
+          {submittedAt && (
             <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mt-6 flex items-start gap-4 rounded-md border border-ok/30 bg-ok/[0.05] p-5" role="status">
               <Lock className="mt-0.5 size-5 text-ok" />
               <div>
-                <p className="font-mono text-[12px] tracking-[0.1em] text-ok">SUBMISSION LOCKED</p>
-                <p className="mt-1 font-mono text-[13px] text-fg">SUBMITTED {fmtUTC(d.submittedAt).toUpperCase()}</p>
-                <p className="mt-2 text-[13px] text-muted">Your project is now visible in the public gallery and queued for judging.</p>
-                <button onClick={() => set("submittedAt", null)} className="mt-3 font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted underline underline-offset-4 hover:text-fg">Reset (demo only)</button>
+                <p className="font-mono text-[12px] tracking-[0.1em] text-ok">SUBMITTED</p>
+                <p className="mt-1 font-mono text-[13px] text-fg">SUBMITTED {fmtUTC(submittedAt).toUpperCase()}</p>
+                <p className="mt-2 text-[13px] text-muted">Your project is in the public gallery and queued for judging. You can keep editing until the deadline; changes save automatically.</p>
               </div>
             </motion.div>
           )}
-          {closed && !d.submittedAt && (
+          {closed && (
             <div className="mt-6 flex items-center gap-3 rounded-md border border-danger/30 bg-danger/[0.05] p-4 text-[13.5px]" role="alert">
-              <AlertTriangle className="size-4 text-danger" />Submissions closed at {fmtUTC(EVENT.deadline)}. The server rejects further edits.
+              <AlertTriangle className="size-4 text-danger" />Submissions closed at {fmtUTC(EVENT.deadline)}. The C++ client blocks further edits before sending them, and the server rejects them too.
             </div>
           )}
         </AnimatePresence>
@@ -175,34 +189,6 @@ export function SubmissionBuilder({ user }: { user: User }) {
               </Field>
             </div>
 
-            <Field label="Screenshots" htmlFor="f-shots" hint="PNG / JPG · up to 6">
-              <label htmlFor="f-shots" className="group flex cursor-pointer flex-col items-center justify-center gap-2 rounded-md border border-dashed border-line-strong px-6 py-8 text-center transition-colors hover:border-accent/50 hover:bg-accent/[0.02]"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  const files = [...e.dataTransfer.files].filter((f) => f.type.startsWith("image/"));
-                  set("screenshots", [...d.screenshots, ...files.map((f) => ({ name: f.name, url: URL.createObjectURL(f) }))].slice(0, 6));
-                }}>
-                <ImagePlus className="size-5 text-muted group-hover:text-accent" />
-                <span className="text-[13.5px] text-fg-2">Drop images or <span className="text-fg underline underline-offset-4">browse</span></span>
-                <span className="font-mono text-[10.5px] text-muted">STORED ON THIS INSTANCE</span>
-              </label>
-              <input id="f-shots" type="file" accept="image/*" multiple className="sr-only"
-                onChange={(e) => set("screenshots", [...d.screenshots, ...[...(e.target.files ?? [])].map((f) => ({ name: f.name, url: URL.createObjectURL(f) }))].slice(0, 6))} />
-              {d.screenshots.length > 0 && (
-                <ul className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
-                  {d.screenshots.map((s) => (
-                    <li key={s.url} className="group relative aspect-video overflow-hidden rounded-sm border border-line">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={s.url} alt={s.name} className="h-full w-full object-cover" />
-                      <button type="button" onClick={() => set("screenshots", d.screenshots.filter((x) => x.url !== s.url))} aria-label={`Remove ${s.name}`}
-                        className="absolute right-1 top-1 rounded-xs bg-bg/80 p-0.5 opacity-0 transition-opacity focus:opacity-100 group-hover:opacity-100"><X className="size-3" /></button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Field>
-
             <fieldset>
               <legend className="label mb-2 text-fg-2">Track <span className="text-accent">*</span></legend>
               <div className="grid gap-2 sm:grid-cols-2" role="radiogroup">
@@ -243,9 +229,9 @@ export function SubmissionBuilder({ user }: { user: User }) {
           <p className="mt-3 font-mono text-[10.5px] text-muted">{fmtUTC(EVENT.deadline).toUpperCase()}</p>
         </div>
 
-        <Panel title="Status" action={d.submittedAt ? <Badge tone="ok" dot>Submitted</Badge> : <Badge tone="warn" dot>Draft</Badge>}>
+        <Panel title="Status" action={submittedAt ? <Badge tone="ok" dot>Submitted</Badge> : <Badge tone="warn" dot>Draft</Badge>}>
           <p className="flex items-center gap-2 font-mono text-[11px] text-muted" aria-live="polite">
-            {d.submittedAt ? <><Lock className="size-3" />LOCKED</> : savedAt && now ? <><Check className="size-3 text-ok" />DRAFT SAVED {relativeTime(savedAt, now).toUpperCase()}</> : "AUTOSAVE ON"}
+            {closed ? <><Lock className="size-3" />LOCKED</> : saveError ? <span className="text-danger">{saveError}</span> : savedAt && now ? <><Check className="size-3 text-ok" />SAVED {relativeTime(savedAt, now).toUpperCase()}</> : "AUTOSAVE ON"}
           </p>
           <ul className="mt-4 space-y-2">
             {checklist.map(([k, ok]) => (
@@ -259,10 +245,10 @@ export function SubmissionBuilder({ user }: { user: User }) {
 
         {!locked && (
           <Button variant={confirming ? "danger" : "primary"} size="lg" className="w-full" onClick={submit}>
-            <Send className="size-3.5" />{confirming ? "Confirm — lock submission" : "Submit project"}
+            <Send className="size-3.5" />{confirming ? "Confirm submission" : submittedAt ? "Resubmit project" : "Submit project"}
           </Button>
         )}
-        {confirming && <p className="text-center font-mono text-[10.5px] text-muted">Submitting locks all fields. Click again to confirm.</p>}
+        {confirming && <p className="text-center font-mono text-[10.5px] text-muted">Submitting sends your project to judging. Click again to confirm.</p>}
       </aside>
     </div>
   );

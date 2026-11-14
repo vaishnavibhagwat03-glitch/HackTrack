@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { MoreHorizontal, X } from "lucide-react";
 import { navFor } from "@/lib/rbac";
-import type { User } from "@/lib/data";
+import type { User } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { EventSwitcher } from "./Sidebar";
 

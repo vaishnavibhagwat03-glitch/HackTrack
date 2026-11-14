@@ -5,7 +5,7 @@ import { motion } from "motion/react";
 import { EASE_IO, useEnv } from "./runtime";
 
 const STEPS = ["initializing platform", "loading submission engine", "loading evaluation engine", "loading judging matrix", "system ready"];
-const KEY = "dogfood.landing.intro";
+const KEY = "hacktrack.landing.intro";
 const RING = 46; // px — the ring the hero's portal grows out of
 
 /**
@@ -91,7 +91,7 @@ export function Loader() {
         {/* wordmark */}
         <motion.p className="relative whitespace-nowrap font-sans text-[13px] font-medium tracking-[0.42em] text-[#ecf0f1] [padding-left:0.42em]"
           animate={open ? { opacity: 0, filter: "blur(4px)" } : { opacity: 1, filter: "blur(0px)" }} transition={{ duration: 0.5 }}>
-          DOGFOOD
+          HACKTRACK
         </motion.p>
       </div>
 

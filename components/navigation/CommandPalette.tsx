@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowRight, CornerDownLeft, Download, FolderKanban, LogOut, Plus, Repeat, ScrollText, Search } from "lucide-react";
 import { navFor } from "@/lib/rbac";
-import { PROJECTS, SUBMITTED, teamById, trackById, type User } from "@/lib/data";
+import type { Project, User } from "@/lib/types";
+import { useApi } from "@/lib/useApi";
 import { useSession } from "@/lib/session";
 import { cn, downloadCSV, pad } from "@/lib/utils";
 import { Kbd } from "@/components/ui/primitives";
@@ -21,32 +22,36 @@ export function CommandPalette({ open, onClose, user }: { open: boolean; onClose
   const [idx, setIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
-  const staff = user.role === "organizer" || user.role === "admin";
+  const staff = user.role === "admin";
+  const { data } = useApi<{ projects: Project[] }>(open ? "/projects?sort=name" : null);
+  const { boot } = useSession();
+  const list = data?.projects ?? [];
 
   const commands = useMemo<Cmd[]>(() => {
     const go = (href: string) => () => router.push(href);
     const nav: Cmd[] = navFor(user.role).map((n) => ({
       id: n.href, group: "Navigate", label: `Go to ${n.label.toLowerCase()}`, hint: n.shortcut, icon: n.icon, run: go(n.href),
     }));
-    const visible = staff ? PROJECTS : SUBMITTED;
-    const projects: Cmd[] = visible.map((p) => ({
+    const trackName = (id: string | null) => boot?.tracks.find((t) => t.id === id)?.name ?? "";
+    const projects: Cmd[] = list.map((p) => ({
       id: `p${p.id}`, group: "Projects", label: p.name, hint: `P-${pad(p.id)}`, icon: FolderKanban, run: go(`/projects/${p.id}`),
-      keywords: `${p.tagline} ${p.stack.join(" ")} ${teamById(p.teamId).name} ${trackById(p.trackId).name}`,
+      keywords: `${p.tagline} ${p.stack.join(" ")} ${p.team?.name ?? ""} ${trackName(p.trackId)}`,
     }));
     const actions: Cmd[] = [
       ...(user.role === "participant" ? [{ id: "a-team", group: "Actions", label: "Open team", icon: ArrowRight, run: go("/teams") }] : []),
       ...(user.role === "judge" ? [{ id: "a-judge", group: "Actions", label: "Resume judging session", icon: ArrowRight, run: go("/judging") }] : []),
       ...(staff
         ? [
-            { id: "a-create", group: "Actions", label: "Create event…", icon: Plus, run: go("/admin") },
+            { id: "a-assign", group: "Actions", label: "Assign judges…", icon: Plus, run: go("/judging") },
             { id: "a-audit", group: "Actions", label: "Open audit log", icon: ScrollText, run: go("/audit") },
             {
               id: "a-export", group: "Actions", label: "Export submissions (CSV)", icon: Download,
               run: () => {
-                downloadCSV("dogfood-2026-submissions.csv", SUBMITTED.map((p) => ({
-                  id: p.id, name: p.name, team: teamById(p.teamId).name, track: trackById(p.trackId).name, stack: p.stack.join(" · "), submitted_at: p.submittedAt,
+                const rows = list.filter((p) => p.status === "submitted");
+                downloadCSV("hacktrack-submissions.csv", rows.map((p) => ({
+                  id: p.id, name: p.name, team: p.team?.name ?? "", track: trackName(p.trackId), stack: p.stack.join(" · "), submitted_at: p.submittedAt,
                 })));
-                toast({ tone: "ok", title: "Export generated", body: `dogfood-2026-submissions.csv · ${SUBMITTED.length} rows` });
+                toast({ tone: "ok", title: "Export generated", body: `hacktrack-submissions.csv · ${rows.length} rows` });
               },
             },
           ]
@@ -55,7 +60,7 @@ export function CommandPalette({ open, onClose, user }: { open: boolean; onClose
       { id: "a-out", group: "Actions", label: "Sign out", icon: LogOut, run: () => { signOut(); router.push("/"); } },
     ];
     return [...nav, ...actions, ...projects];
-  }, [user.role, staff, router, signOut, toast]);
+  }, [user.role, staff, router, signOut, toast, list, boot]);
 
   const results = useMemo(() => {
     const s = q.trim().toLowerCase();

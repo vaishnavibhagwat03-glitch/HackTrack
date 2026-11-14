@@ -5,15 +5,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { ArrowRight, Play } from "lucide-react";
-import { RUBRIC, projectById, teamById, trackById, type AssignmentStatus, type User } from "@/lib/data";
-import { useJudgeAssignments } from "@/lib/judging-store";
-import { weightedScore } from "@/lib/scoring";
+import type { Assignment, AssignmentStatus, Judge, RubricNode, User } from "@/lib/types";
+import { useApi } from "@/lib/useApi";
+import { useSession } from "@/lib/session";
 import { useHotkeys } from "@/lib/hooks";
 import { cn, pad } from "@/lib/utils";
 import { Counter } from "@/components/ui/Counter";
 import { Tabs } from "@/components/ui/Tabs";
 import { Badge, Kbd, Meter, Panel, buttonClass, type Tone } from "@/components/ui/primitives";
-import { EmptyState } from "@/components/ui/States";
+import { EmptyState, ErrorState } from "@/components/ui/States";
+import { DashboardSkeleton } from "@/components/dashboard/Widgets";
 import { Greeting } from "@/components/dashboard/Widgets";
 
 export const STATUS_META: Record<AssignmentStatus, { label: string; tone: Tone }> = {
@@ -25,17 +26,27 @@ export const STATUS_META: Record<AssignmentStatus, { label: string; tone: Tone }
 
 type Filter = "all" | AssignmentStatus;
 
+export type JudgeQueue = {
+  judge: Judge | null;
+  rubric: RubricNode[];
+  judgingOpen: boolean;
+  queue: Assignment[];
+  stats: { assigned: number; completed: number; remaining: number; average: number };
+};
+
 export function JudgeDashboard({ user }: { user: User }) {
   const router = useRouter();
-  const rows = useJudgeAssignments(user.judgeId!);
+  const { boot } = useSession();
+  const q = useApi<JudgeQueue>("/judging/queue");
+  const rows = useMemo(() => q.data?.queue ?? [], [q.data]);
   const [filter, setFilter] = useState<Filter>("all");
   const [sel, setSel] = useState(0);
 
   const done = rows.filter((a) => a.status === "submitted");
-  const avg = done.length ? done.reduce((s, a) => s + weightedScore(a.scores, RUBRIC), 0) / done.length : 0;
+  const avg = q.data?.stats.average ?? 0;
   const next = rows.find((a) => a.status === "in_progress") ?? rows.find((a) => a.status === "not_started");
   const list = useMemo(() => rows.filter((a) => filter === "all" || a.status === filter), [rows, filter]);
-  const normReady = done.length >= 3;
+  const trackName = (id: string | null | undefined) => boot?.tracks.find((t) => t.id === id)?.name ?? "—";
 
   useHotkeys({
     j: () => setSel((s) => Math.min(list.length - 1, s + 1)),
@@ -44,6 +55,8 @@ export function JudgeDashboard({ user }: { user: User }) {
   }, [list, sel]);
 
   const count = (s: AssignmentStatus) => rows.filter((a) => a.status === s).length;
+  if (q.error) return <ErrorState body={q.error.message} onRetry={q.reload} />;
+  if (!q.data) return <DashboardSkeleton />;
 
   return (
     <>
@@ -81,13 +94,13 @@ export function JudgeDashboard({ user }: { user: User }) {
             </div>
           ))}
           <div className="col-span-2 flex items-center justify-between border-t border-line p-5">
-            <dt className="label">Normalization status</dt>
-            <dd><Badge tone={normReady ? "ok" : "warn"} dot>{normReady ? "Ready" : `Needs ${3 - done.length} more`}</Badge></dd>
+            <dt className="label">Judging window</dt>
+            <dd><Badge tone={q.data.judgingOpen ? "ok" : "warn"} dot>{q.data.judgingOpen ? "Open · scores editable" : "Closed"}</Badge></dd>
           </div>
         </dl>
       </section>
 
-      <Panel className="mt-6" bodyClassName="p-0" title="Project queue" meta="ROLLING REVIEW · SUBMITTED PROJECTS ONLY">
+      <Panel className="mt-6" bodyClassName="p-0" title="Project queue" meta="ASSIGNED ROUND-ROBIN · NO CONFLICTS OF INTEREST">
         <Tabs size="sm" className="px-2" value={filter} onChange={(f) => { setFilter(f); setSel(0); }}
           tabs={[
             { id: "all", label: "All", count: rows.length },
@@ -97,11 +110,12 @@ export function JudgeDashboard({ user }: { user: User }) {
             { id: "flagged", label: "Flagged", count: count("flagged") },
           ]} />
         {list.length === 0 ? (
-          <EmptyState className="m-4" code="QUEUE · 0" title="Nothing here" body="No projects in this state. Switch tabs to see the rest of your queue." />
+          <EmptyState className="m-4" code="QUEUE · 0" title="Nothing here" body={rows.length ? "No projects in this state. Switch tabs to see the rest of your queue." : "No projects are assigned to you yet. The admin assigns judges with the round-robin algorithm."} />
         ) : (
           <ol role="listbox" aria-label="Assigned projects" aria-activedescendant={`q-${list[sel]?.projectId}`}>
             {list.map((a, i) => {
-              const p = projectById(a.projectId)!;
+              const p = a.project;
+              if (!p) return null;
               const meta = STATUS_META[a.status];
               return (
                 <li key={a.projectId} id={`q-${a.projectId}`} role="option" aria-selected={i === sel}>
@@ -113,12 +127,12 @@ export function JudgeDashboard({ user }: { user: User }) {
                     <span className="hidden font-mono text-[11px] text-fg-2 md:block">{p.code}</span>
                     <span className="min-w-0">
                       <span className="block truncate text-[14.5px] font-medium">{p.name}</span>
-                      <span className="block truncate text-[12px] text-muted md:hidden">{teamById(p.teamId).name} · <Badge tone={meta.tone} className="ml-1">{meta.label}</Badge></span>
-                      <span className="hidden truncate text-[12px] text-muted md:block">{teamById(p.teamId).name}</span>
+                      <span className="block truncate text-[12px] text-muted md:hidden">{p.team?.name} · <Badge tone={meta.tone} className="ml-1">{meta.label}</Badge></span>
+                      <span className="hidden truncate text-[12px] text-muted md:block">{p.team?.name}</span>
                     </span>
-                    <span className="hidden truncate font-mono text-[11px] text-muted md:block">{trackById(p.trackId).name}</span>
+                    <span className="hidden truncate font-mono text-[11px] text-muted md:block">{trackName(p.trackId)}</span>
                     <span className="hidden md:block"><Badge tone={meta.tone} dot>{meta.label}</Badge></span>
-                    <span className="text-right font-mono text-[13px] tabular text-fg">{a.status === "submitted" ? weightedScore(a.scores, RUBRIC).toFixed(2) : "—"}</span>
+                    <span className="text-right font-mono text-[13px] tabular text-fg">{a.weighted != null ? a.weighted.toFixed(2) : "—"}</span>
                     <ArrowRight className="hidden size-4 text-muted md:block" />
                   </Link>
                 </li>

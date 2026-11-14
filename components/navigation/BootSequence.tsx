@@ -4,13 +4,12 @@ import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { LogoMark } from "@/components/ui/Logo";
 import { EventGrid } from "@/components/ui/EventGrid";
-import { EVENT } from "@/lib/data";
 
 const LINES = [
-  "INITIALIZING EVENT ENGINE",
-  "LOADING PROJECT INDEX",
-  "LOADING JUDGING ENGINE",
-  "VERIFYING LOCAL DATA",
+  "CONNECTING TO C++ CLIENT",
+  "HASH TABLE · SESSION CACHED",
+  "BST · PROJECT INDEX BUILT",
+  "REQUEST QUEUE · READY",
   "SYSTEM READY",
 ];
 
@@ -32,7 +31,7 @@ export function BootSequence({ onDone }: { onDone: () => void }) {
   return (
     <motion.div
       role="status"
-      aria-label="Loading Dogfood"
+      aria-label="Loading HackTrack"
       className="fixed inset-0 z-[90] flex flex-col items-center justify-center overflow-hidden bg-[#050505]"
       exit={{ opacity: 0, filter: "blur(6px)", scale: 1.02 }}
       transition={{ duration: 0.55, ease: [0.76, 0, 0.24, 1] }}
@@ -43,8 +42,8 @@ export function BootSequence({ onDone }: { onDone: () => void }) {
 
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="relative flex flex-col items-center">
         <LogoMark size={36} className="text-fg" />
-        <p className="mt-6 font-mono text-[28px] font-semibold tracking-[0.35em] text-fg sm:text-[34px]">DOGFOOD</p>
-        <p className="label mt-2">{EVENT.id} · {EVENT.version} · {EVENT.instance}</p>
+        <p className="mt-6 font-mono text-[28px] font-semibold tracking-[0.35em] text-fg sm:text-[34px]">HACKTRACK</p>
+        <p className="label mt-2">WEBSITE · C++17 CLIENT · SERVER</p>
       </motion.div>
 
       <div className="relative mt-12 w-[min(360px,86vw)] font-mono text-[11px] tracking-[0.08em]">
@@ -68,7 +67,7 @@ export function BootSequence({ onDone }: { onDone: () => void }) {
           <motion.div className="h-px bg-accent" animate={{ width: `${(shown / LINES.length) * 100}%` }} transition={{ duration: 0.25 }} />
         </div>
         <p className="mt-2 flex justify-between text-[10px] text-muted">
-          <span>LOCAL INSTANCE · NO NETWORK REQUIRED</span>
+          <span>CUSTOM DATA STRUCTURES · NO STL CONTAINERS</span>
           <span className="tabular">{Math.round((shown / LINES.length) * 100)}%</span>
         </p>
       </div>

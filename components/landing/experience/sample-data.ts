@@ -1,14 +1,15 @@
-// Seeded, deterministic mock data. Identical on server and client.
-// In production every one of these comes from the self-hosted REST API.
+// ILLUSTRATIVE SAMPLE used only by the landing page's scroll animations.
+// The application itself never reads this file: every page behind sign-in
+// gets its data from the HackTrack C++ client (bridge mode).
 
-import { mulberry32, hash, pad } from "./utils";
-import { projectAverages, weightedScore, type RawScore } from "./scoring";
+import { mulberry32, hash, pad } from "@/lib/utils";
+import { projectAverages, weightedScore, type RawScore } from "./sample-scoring";
 
 export type Role = "participant" | "judge" | "organizer" | "admin";
 
 export const EVENT = {
   id: "EVT-2026-DGF",
-  name: "Dogfood 2026",
+  name: "HackTrack 2026",
   tagline: "Build the platform that will judge you.",
   startsAt: "2026-09-25T18:00:00Z",
   deadline: "2026-09-28T18:00:00Z",
@@ -19,7 +20,7 @@ export const EVENT = {
 };
 
 export const EVENTS = [
-  { id: EVENT.id, name: "Dogfood 2026", status: "LIVE" as const },
+  { id: EVENT.id, name: "HackTrack 2026", status: "LIVE" as const },
   { id: "EVT-2025-DGF", name: "Dogfood 2025", status: "ARCHIVE" as const },
 ];
 

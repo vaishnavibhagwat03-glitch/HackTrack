@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, Search, Command } from "lucide-react";
 import { NAV } from "@/lib/rbac";
-import { NOTIFICATIONS, EVENT, type User } from "@/lib/data";
+import type { Bootstrap, User } from "@/lib/types";
+import { useSession } from "@/lib/session";
 import { fmtUTC } from "@/lib/utils";
 import { useNow } from "@/lib/hooks";
 import { LogoMark } from "@/components/ui/Logo";
@@ -12,10 +13,34 @@ import { Popover } from "@/components/ui/Popover";
 import { Kbd, StatusDot } from "@/components/ui/primitives";
 import { UserMenu } from "./Sidebar";
 
+type Note = { id: string; title: string; body: string; at: string; unread: boolean };
+
+/** Notifications derived from the live event state served by the C++ client. */
+function notificationsFor(boot: Bootstrap | null, user: User, now: number | null): Note[] {
+  if (!boot) return [];
+  const e = boot.event;
+  const t = now ?? Date.parse(boot.serverTime);
+  const out: Note[] = [];
+  const left = Date.parse(e.deadline) - t;
+  if (left > 0) {
+    const h = Math.round(left / 3600e3);
+    out.push({ id: "deadline", title: `Submission deadline in ${h} h`, body: `Drafts lock at ${fmtUTC(e.deadline)}.`, at: e.deadline, unread: user.role === "participant" && h < 48 });
+  } else {
+    out.push({ id: "deadline", title: "Submissions are locked", body: `The deadline passed at ${fmtUTC(e.deadline)}.`, at: e.deadline, unread: false });
+  }
+  if (user.role === "participant" && !user.teamId) out.push({ id: "team", title: "You are not in a team yet", body: "Create a team or join one with an invite code.", at: boot.serverTime, unread: true });
+  if (e.judgingOpen) out.push({ id: "judging", title: "Judging is open", body: user.role === "judge" ? "Your queue is ready in Judging." : "Judges are scoring submitted projects.", at: boot.serverTime, unread: user.role === "judge" });
+  if (e.votingOpen) out.push({ id: "voting", title: "Community voting is open", body: `Every account has ${e.votesPerUser} votes.`, at: boot.serverTime, unread: false });
+  if (e.resultsPublished) out.push({ id: "results", title: "Results are published", body: "See the leaderboard and your certificates.", at: e.resultsAt, unread: true });
+  return out;
+}
+
 export function Topbar({ user, onOpenPalette }: { user: User; onOpenPalette: () => void }) {
   const pathname = usePathname();
   const now = useNow();
+  const { boot } = useSession();
   const section = NAV.find((n) => pathname.startsWith(n.href));
+  const NOTIFICATIONS = notificationsFor(boot, user, now);
   const unread = NOTIFICATIONS.filter((n) => n.unread).length;
 
   return (
@@ -23,7 +48,7 @@ export function Topbar({ user, onOpenPalette }: { user: User; onOpenPalette: () 
       <Link href="/dashboard" className="md:hidden" aria-label="Overview"><LogoMark /></Link>
 
       <div className="hidden min-w-0 items-center gap-2 font-mono text-[11px] uppercase tracking-[0.08em] text-muted sm:flex">
-        <span>{EVENT.name}</span>
+        <span>{boot?.event.name ?? "HackTrack"}</span>
         <span className="text-line-strong">/</span>
         <span className="text-fg-2">{section?.label ?? "Workspace"}</span>
       </div>

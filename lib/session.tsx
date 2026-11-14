@@ -1,38 +1,86 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { DEMO_USERS, type User } from "./data";
+import { api, getToken, onWrite, setToken } from "./api";
+import type { Bootstrap, User } from "./types";
 
-// Local demo session. A real deployment uses an HTTP-only session cookie
-// issued by the self-hosted auth service; this only mirrors "who am I".
+// Session: the token comes from the C++ client (which caches token -> role
+// in its hash table). The website keeps only the token.
 
-type Session = { user: User | null; ready: boolean; signIn: (id: string) => void; signOut: () => void };
-const Ctx = createContext<Session>({ user: null, ready: false, signIn: () => {}, signOut: () => {} });
-const KEY = "dogfood.session";
+type Session = {
+  user: User | null;
+  ready: boolean;
+  boot: Bootstrap | null;
+  login: (email: string, password: string) => Promise<User>;
+  signup: (name: string, email: string, password: string) => Promise<User>;
+  signOut: () => void;
+  refreshUser: () => Promise<void>;
+};
+
+const Ctx = createContext<Session>({
+  user: null, ready: false, boot: null,
+  login: async () => { throw new Error("no session provider"); },
+  signup: async () => { throw new Error("no session provider"); },
+  signOut: () => {}, refreshUser: async () => {},
+});
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
+  const [boot, setBoot] = useState<Bootstrap | null>(null);
+
+  const loadBoot = useCallback(async () => {
+    try { setBoot(await api<Bootstrap>("/bootstrap")); } catch {}
+  }, []);
+
+  const refreshUser = useCallback(async () => {
+    if (!getToken()) { setUser(null); return; }
+    try { setUser(await api<User>("/me")); } catch (e) {
+      if ((e as { status?: number }).status === 401) { setToken(null); setUser(null); }
+    }
+  }, []);
 
   useEffect(() => {
-    try {
-      const id = localStorage.getItem(KEY);
-      setUser(DEMO_USERS.find((u) => u.id === id) ?? null);
-    } catch {}
-    setReady(true);
-  }, []);
+    (async () => {
+      await refreshUser();
+      await loadBoot();
+      setReady(true);
+    })();
+  }, [refreshUser, loadBoot]);
 
-  const signIn = useCallback((id: string) => {
-    setUser(DEMO_USERS.find((u) => u.id === id) ?? null);
-    try { localStorage.setItem(KEY, id); } catch {}
-  }, []);
+  // Team or role changes come back through writes; keep user + event fresh.
+  useEffect(() => onWrite(() => { refreshUser(); loadBoot(); }), [refreshUser, loadBoot]);
+  useEffect(() => {
+    const t = setInterval(loadBoot, 15000);
+    const onUnauth = () => { setToken(null); setUser(null); };
+    window.addEventListener("hacktrack:unauthorized", onUnauth);
+    return () => { clearInterval(t); window.removeEventListener("hacktrack:unauthorized", onUnauth); };
+  }, [loadBoot]);
+
+  const login = useCallback(async (email: string, password: string) => {
+    const r = await api<{ token: string; user: User }>("/auth/login", { method: "POST", body: { email, password }, auth: false });
+    setToken(r.token);
+    setUser(r.user);
+    loadBoot();
+    return r.user;
+  }, [loadBoot]);
+
+  const signup = useCallback(async (name: string, email: string, password: string) => {
+    const r = await api<{ token: string; user: User }>("/auth/signup", { method: "POST", body: { name, email, password }, auth: false });
+    setToken(r.token);
+    setUser(r.user);
+    loadBoot();
+    return r.user;
+  }, [loadBoot]);
 
   const signOut = useCallback(() => {
+    api("/auth/logout", { method: "POST" }).catch(() => {});
+    setToken(null);
     setUser(null);
-    try { localStorage.removeItem(KEY); sessionStorage.removeItem("dogfood.booted"); } catch {}
+    try { sessionStorage.removeItem("hacktrack.booted"); } catch {}
   }, []);
 
-  return <Ctx.Provider value={{ user, ready, signIn, signOut }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ user, ready, boot, login, signup, signOut, refreshUser }}>{children}</Ctx.Provider>;
 }
 
 export const useSession = () => useContext(Ctx);

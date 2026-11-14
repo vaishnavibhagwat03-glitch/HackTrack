@@ -4,7 +4,7 @@ import { memo, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { ArrowRight } from "lucide-react";
-import { EVENT } from "@/lib/data";
+import { EVENT } from "./sample-data";
 import { useNow } from "@/lib/hooks";
 import { fmtUTC } from "@/lib/utils";
 import { Magnetic, buttonClass } from "@/components/ui/primitives";
@@ -97,10 +97,10 @@ function Hero() {
       <div className="absolute inset-x-0 bottom-0 z-30 mx-auto flex max-w-[1600px] flex-col gap-5 px-5 pb-16 md:flex-row md:items-end md:justify-between md:px-10 md:pb-16">
         <motion.p initial={{ opacity: 0, y: 12 }} animate={introShown ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.8, delay: 1.2, ease: EASE }}
           className="max-w-md text-[15px] leading-relaxed text-fg-2 md:text-[16px]">
-          {EVENT.tagline} An open-source, self-hostable hackathon submission and judging platform — from first commit to final score.
+          {EVENT.tagline} A hackathon platform whose every request runs through a C++ client built on hand-written data structures — from first commit to final score.
         </motion.p>
         <motion.div initial={{ opacity: 0, y: 12 }} animate={introShown ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.8, delay: 1.35, ease: EASE }} className="flex flex-wrap gap-3">
-          <Magnetic><Link href="/signin" className={buttonClass("primary", "lg", "xp-btn")}>Enter Dogfood <ArrowRight className="size-4" /></Link></Magnetic>
+          <Magnetic><Link href="/signin" className={buttonClass("primary", "lg", "xp-btn")}>Enter HackTrack <ArrowRight className="size-4" /></Link></Magnetic>
           <Magnetic><Link href="/gallery" className={buttonClass("outline", "lg", "xp-btn")}>Explore projects</Link></Magnetic>
         </motion.div>
       </div>

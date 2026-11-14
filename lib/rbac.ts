@@ -1,29 +1,31 @@
-import type { Role } from "./data";
+import type { Role } from "./types";
 import {
   LayoutGrid, FolderKanban, Users, Gavel, Vote, Trophy, Award, BarChart3,
-  Settings2, ScrollText, FileEdit, type LucideIcon,
+  Settings2, ScrollText, FileEdit, Binary, type LucideIcon,
 } from "lucide-react";
 
-// UI routing only. The server is the authority on every permission —
-// these rules decide what to *show*, never what is *allowed*.
+export { ROLE_LABEL } from "./types";
+
+// UI routing only. The C++ client checks the role from its session cache,
+// and the server checks again — these rules decide what to *show*.
 
 export type NavItem = { href: string; label: string; icon: LucideIcon; roles: Role[]; group: "main" | "admin"; shortcut?: string };
 
-const ALL: Role[] = ["participant", "judge", "organizer", "admin"];
-const STAFF: Role[] = ["organizer", "admin"];
+const ALL: Role[] = ["participant", "judge", "admin"];
 
 export const NAV: NavItem[] = [
   { href: "/dashboard", label: "Overview", icon: LayoutGrid, roles: ALL, group: "main", shortcut: "G O" },
   { href: "/projects", label: "Projects", icon: FolderKanban, roles: ALL, group: "main", shortcut: "G P" },
-  { href: "/teams", label: "Team", icon: Users, roles: ["participant", ...STAFF], group: "main", shortcut: "G T" },
+  { href: "/teams", label: "Team", icon: Users, roles: ["participant", "admin"], group: "main", shortcut: "G T" },
   { href: "/submission", label: "Submission", icon: FileEdit, roles: ["participant"], group: "main", shortcut: "G S" },
-  { href: "/judging", label: "Judging", icon: Gavel, roles: ["judge", ...STAFF], group: "main", shortcut: "G J" },
+  { href: "/judging", label: "Judging", icon: Gavel, roles: ["judge", "admin"], group: "main", shortcut: "G J" },
   { href: "/voting", label: "Voting", icon: Vote, roles: ALL, group: "main", shortcut: "G V" },
   { href: "/results", label: "Results", icon: Trophy, roles: ALL, group: "main", shortcut: "G R" },
-  { href: "/certificates", label: "Certificates", icon: Award, roles: ["participant", "judge", ...STAFF], group: "main" },
-  { href: "/analytics", label: "Analytics", icon: BarChart3, roles: STAFF, group: "main" },
-  { href: "/admin", label: "Administration", icon: Settings2, roles: STAFF, group: "admin" },
-  { href: "/audit", label: "Audit Log", icon: ScrollText, roles: STAFF, group: "admin" },
+  { href: "/certificates", label: "Certificates", icon: Award, roles: ALL, group: "main" },
+  { href: "/analytics", label: "Analytics", icon: BarChart3, roles: ["admin"], group: "admin" },
+  { href: "/admin", label: "Administration", icon: Settings2, roles: ["admin"], group: "admin" },
+  { href: "/audit", label: "Audit & Undo", icon: ScrollText, roles: ["admin"], group: "admin" },
+  { href: "/structures", label: "Data Structures", icon: Binary, roles: ALL, group: "main", shortcut: "G D" },
 ];
 
 /** Routes a role may open. Judging sessions are judge-only (role isolation). */
@@ -38,10 +40,3 @@ export function canView(role: Role, pathname: string) {
 }
 
 export const navFor = (role: Role) => NAV.filter((n) => n.roles.includes(role));
-
-export const ROLE_LABEL: Record<Role, string> = {
-  participant: "Participant",
-  judge: "Judge",
-  organizer: "Organizer",
-  admin: "Admin",
-};

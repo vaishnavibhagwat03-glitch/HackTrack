@@ -3,20 +3,22 @@
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { Check } from "lucide-react";
-import { EVENT, AUDIT } from "@/lib/data";
+import type { AuditEvent, Event } from "@/lib/types";
+import { useSession } from "@/lib/session";
 import { useNow } from "@/lib/hooks";
 import { cn, fmtUTC, pad, splitDuration } from "@/lib/utils";
 import { Counter } from "@/components/ui/Counter";
 import { EventGrid } from "@/components/ui/EventGrid";
-import { Badge, StatusDot, Ticks } from "@/components/ui/primitives";
+import { Badge, Skeleton, StatusDot, Ticks } from "@/components/ui/primitives";
 
 export function Greeting({ name, sub }: { name: string; sub: string }) {
   const now = useNow(60_000);
   const h = now ? new Date(now).getHours() : null;
   const part = h == null ? "Hello" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+  const { boot } = useSession();
   return (
     <header className="mb-8 md:mb-10">
-      <p className="label flex items-center gap-2"><StatusDot tone="ok" pulse />{EVENT.name} · {sub}</p>
+      <p className="label flex items-center gap-2"><StatusDot tone="ok" pulse />{boot?.event.name ?? "HackTrack"} · {sub}</p>
       <h1 className="mt-3 text-[clamp(2rem,4.8vw,3.75rem)] font-semibold uppercase leading-[0.92] tracking-[-0.04em]">
         {part},<br className="sm:hidden" /> <span className="text-fg-2">{name.split(" ")[0]}</span>
       </h1>
@@ -59,18 +61,22 @@ export function Countdown({ to, big = true, seconds }: { to: string; big?: boole
   );
 }
 
-const PHASES = [
-  { k: "REGISTRATION", at: "2026-09-10T00:00:00Z" },
-  { k: "BUILD", at: EVENT.startsAt },
-  { k: "SUBMISSIONS CLOSE", at: EVENT.deadline },
-  { k: "JUDGING", at: EVENT.deadline },
-  { k: "RESULTS", at: EVENT.resultsAt },
+const phases = (e: Event) => [
+  { k: "REGISTRATION", at: new Date(Date.parse(e.startsAt) - 7 * 864e5).toISOString() },
+  { k: "BUILD", at: e.startsAt },
+  { k: "SUBMISSIONS CLOSE", at: e.deadline },
+  { k: "JUDGING", at: e.deadline },
+  { k: "RESULTS", at: e.resultsAt },
 ];
 
 export function EventStatus({ title = "Submissions close in" }: { title?: string }) {
   const now = useNow(30_000);
+  const { boot } = useSession();
+  if (!boot) return <section aria-label="Event status" className="h-64 rounded-md border border-line bg-surface/70" />;
+  const EVENT = boot.event;
+  const PHASES = phases(EVENT);
   const closed = now != null && now >= Date.parse(EVENT.deadline);
-  const current = now == null ? 1 : PHASES.reduce((acc, p, i) => (now >= Date.parse(p.at) ? i : acc), 0);
+  const current = EVENT.resultsPublished ? 4 : now == null ? 1 : PHASES.reduce((acc, p, i) => (now >= Date.parse(p.at) ? i : acc), 0);
 
   return (
     <section aria-label="Event status" className="relative overflow-hidden rounded-md border border-line bg-surface/70">
@@ -80,12 +86,13 @@ export function EventStatus({ title = "Submissions close in" }: { title?: string
         <div>
           <div className="flex flex-wrap items-center gap-3">
             <span className="label text-fg-2">Event status</span>
-            <Badge tone={closed ? "warn" : "ok"} dot pulse>{closed ? "Judging" : "Live"}</Badge>
-            <span className="label">{EVENT.id}</span>
+            <Badge tone={closed ? "warn" : "ok"} dot pulse>{EVENT.resultsPublished ? "Results out" : closed ? "Judging" : "Live"}</Badge>
+            {EVENT.judgingOpen && <Badge tone="steel">Judging open</Badge>}
+            {EVENT.votingOpen && <Badge tone="steel">Voting open</Badge>}
           </div>
           <p className="label mt-8">{closed ? "Submissions closed" : title}</p>
           <div className="mt-3">{closed ? <p className="text-5xl font-semibold tracking-tight">Locked</p> : <Countdown to={EVENT.deadline} />}</div>
-          <p className="mt-5 font-mono text-[11.5px] text-muted">DEADLINE {fmtUTC(EVENT.deadline)} · SERVER-AUTHORITATIVE CLOCK</p>
+          <p className="mt-5 font-mono text-[11.5px] text-muted">DEADLINE {fmtUTC(EVENT.deadline)} · CHECKED BY THE C++ CLIENT BEFORE SENDING</p>
         </div>
         <ol className="grid grid-cols-5 gap-2 lg:w-[420px] lg:grid-cols-1 lg:gap-0">
           {PHASES.map((p, i) => (
@@ -125,10 +132,10 @@ export function MetricStrip({ items }: { items: { k: string; v: number; suffix?:
   );
 }
 
-export function ActivityFeed({ limit = 8 }: { limit?: number }) {
+export function ActivityFeed({ events, limit = 8 }: { events: AuditEvent[]; limit?: number }) {
   return (
     <ol className="divide-y divide-line">
-      {AUDIT.slice(0, limit).map((e, i) => (
+      {events.slice(0, limit).map((e, i) => (
         <motion.li key={e.id} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }}
           className="grid grid-cols-[64px_1fr] gap-3 py-2.5 font-mono text-[11px] sm:grid-cols-[64px_130px_1fr_auto]">
           <span className="text-muted tabular">{fmtUTC(e.at, "clock")}</span>
@@ -138,5 +145,15 @@ export function ActivityFeed({ limit = 8 }: { limit?: number }) {
         </motion.li>
       ))}
     </ol>
+  );
+}
+
+export function DashboardSkeleton() {
+  return (
+    <div className="space-y-6" aria-busy="true" aria-label="Loading dashboard">
+      <Skeleton className="h-12 w-2/3" />
+      <Skeleton className="h-64" />
+      <div className="grid gap-4 md:grid-cols-5">{Array.from({ length: 5 }, (_, i) => <Skeleton key={i} className="h-28" />)}</div>
+    </div>
   );
 }

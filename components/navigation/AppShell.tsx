@@ -11,6 +11,7 @@ import { Topbar } from "./Topbar";
 import { MobileNav } from "./MobileNav";
 import { CommandPalette } from "./CommandPalette";
 import { BootSequence } from "./BootSequence";
+import { TraceDrawer } from "./TraceDrawer";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, ready } = useSession();
@@ -26,12 +27,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let booted = false;
-    try { booted = sessionStorage.getItem("dogfood.booted") === "1"; } catch {}
+    try { booted = sessionStorage.getItem("hacktrack.booted") === "1"; } catch {}
     setBooting(!booted);
   }, []);
 
   const endBoot = useCallback(() => {
-    try { sessionStorage.setItem("dogfood.booted", "1"); } catch {}
+    try { sessionStorage.setItem("hacktrack.booted", "1"); } catch {}
     setBooting(false);
   }, []);
 
@@ -81,6 +82,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
       <MobileNav user={user} />
       <CommandPalette open={palette} onClose={() => setPalette(false)} user={user} />
+      <TraceDrawer />
     </>
   );
 }

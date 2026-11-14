@@ -28,7 +28,7 @@ export function SystemNav({ active }: { active: string }) {
       transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
     >
       <motion.div className="mx-auto flex h-14 max-w-[1600px] items-center gap-6 px-5 md:px-10" style={{ opacity }}>
-        <Link href="/" aria-label="Dogfood home"><Logo /></Link>
+        <Link href="/" aria-label="HackTrack home"><Logo /></Link>
 
         <p className="hidden items-center gap-2.5 font-mono text-[10.5px] tracking-[0.16em] text-fg-2 sm:flex" aria-live="polite">
           <span className="text-line-strong">/</span>
@@ -38,8 +38,8 @@ export function SystemNav({ active }: { active: string }) {
 
         <nav aria-label="Primary" className="ml-auto flex items-center gap-5 font-mono text-[11px] uppercase tracking-[0.1em] text-muted">
           <Link href="/gallery" className="hidden transition-colors hover:text-fg md:inline">Projects</Link>
-          <a href="#platform" className="hidden transition-colors hover:text-fg md:inline">Platform</a>
-          <a href="#self-host" className="hidden transition-colors hover:text-fg md:inline">Self-host</a>
+          <a href="#platform" className="hidden transition-colors hover:text-fg md:inline">Architecture</a>
+          <a href="#self-host" className="hidden transition-colors hover:text-fg md:inline">Run it</a>
           <Link href="/signin" className={buttonClass("secondary", "sm", "xp-btn")}>Sign in</Link>
         </nav>
       </motion.div>
