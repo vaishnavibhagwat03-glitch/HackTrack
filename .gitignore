@@ -12,3 +12,7 @@ hacktrack-client/build/
 server/data/*.db
 server/data/*.db-*
 .env*.local
+
+# Local tooling output
+graphify-out/
+.vscode/
