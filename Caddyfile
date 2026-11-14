@@ -1,0 +1,15 @@
+# Caddy is the only container exposed to the internet. It sends API calls to the
+# C++ client and everything else to the website, so the browser sees one address.
+# With a domain name in SITE_ADDRESS, Caddy gets and renews an HTTPS certificate itself.
+
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy client:8080
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+}

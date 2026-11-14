@@ -33,7 +33,7 @@ std::string param(const httplib::Request& req, const char* key, const char* dflt
 
 }  // namespace
 
-int runBridge(HackTrack& app, int port, const std::string& allowOrigin) {
+int runBridge(HackTrack& app, int port, const std::string& listenHost, const std::string& allowOrigin) {
     httplib::Server srv;
     std::mutex mu;  // the data structures are not thread-safe: one request at a time
 
@@ -147,12 +147,12 @@ int runBridge(HackTrack& app, int port, const std::string& allowOrigin) {
     });
 
     std::printf("HackTrack C++ client - bridge mode\n");
-    std::printf("  website -> http://localhost:%d/api  (this program)\n", port);
+    std::printf("  website -> http://%s:%d/api  (this program)\n", listenHost.c_str(), port);
     std::printf("  server  -> http://%s       (Node + SQLite)\n", app.queue().serverAddress().c_str());
     json h = app.health();
     std::printf("  server status: %s\n\n", h["server"]["ok"].get<bool>() ? "reachable" : "NOT reachable (start it with: cd server && npm start)");
     std::fflush(stdout);
-    if (!srv.listen("127.0.0.1", port)) {
+    if (!srv.listen(listenHost, port)) {
         std::fprintf(stderr, "Could not listen on port %d (already in use?)\n", port);
         return 1;
     }

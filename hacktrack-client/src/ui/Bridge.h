@@ -5,8 +5,9 @@
 
 namespace ht {
 
-/// Serve the website's /api requests on localhost:port. Blocks.
-int runBridge(HackTrack& app, int port, const std::string& allowOrigin = "*");
+/// Serve the website's /api requests on listenHost:port. Blocks.
+/// 127.0.0.1 (default) accepts local connections only; 0.0.0.0 is for Docker.
+int runBridge(HackTrack& app, int port, const std::string& listenHost = "127.0.0.1", const std::string& allowOrigin = "*");
 
 /// Role-based console menus (report Figures 4 and 5). Blocks until exit.
 int runConsole(HackTrack& app);

@@ -4,6 +4,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   devIndicators: false,
+  // Docker builds set NEXT_OUTPUT=standalone: a self-contained server.js with only the files it needs.
+  ...(process.env.NEXT_OUTPUT === "standalone" ? { output: "standalone" as const } : {}),
 };
 
 export default nextConfig;

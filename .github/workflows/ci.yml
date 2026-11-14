@@ -1,0 +1,49 @@
+# Runs on every push to GitHub. Two independent jobs:
+#   tests   - builds the C++ client on Linux and runs every test suite + the website build
+#   docker  - builds the real Docker images, starts the whole system, and smoke-tests it
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install Ninja (CMake is preinstalled)
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - run: npm ci
+      - run: npm run typecheck
+      - name: Build the C++ client
+        run: npm run client:build
+      - name: Server tests, C++ unit tests, end-to-end tests
+        run: npm test
+      - name: Website production build
+        run: npm run build
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create .env
+        run: |
+          echo "HACKTRACK_ADMIN_PASSWORD=ci-${{ github.run_id }}-pass" >> .env
+          echo "SITE_ADDRESS=:80" >> .env
+      - name: Build images and start every container
+        run: docker compose up -d --build --wait --wait-timeout 300
+      - name: Smoke test through the proxy
+        run: bash scripts/smoke-test.sh http://localhost
+      - name: Container logs
+        if: always()
+        run: docker compose ps && docker compose logs --no-color --tail 80
+      - name: Stop
+        if: always()
+        run: docker compose down -v

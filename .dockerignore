@@ -1,0 +1,16 @@
+# Keep the build context small and free of local state.
+.git
+.github
+node_modules
+.next
+out
+*.tsbuildinfo
+next-env.d.ts
+hacktrack-client/build
+server/data
+graphify-out
+.vscode
+.env
+.env.*
+!.env.example
+HANDOFF.md

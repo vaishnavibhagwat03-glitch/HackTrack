@@ -19,6 +19,8 @@ const iso = (ms) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, "Z");
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
 export const DEMO_PASSWORDS = { admin: "admin123", judge: "judge123", participant: "participant123", others: "hacktrack123" };
+// On a public deployment the admin password must not be the published demo one.
+const ADMIN_PASSWORD = process.env.HACKTRACK_ADMIN_PASSWORD || DEMO_PASSWORDS.admin;
 
 const TRACKS = [
   ["core", "TRK-01", "Full Platform", "End-to-end lifecycle: auth, teams, submissions, judging, results."],
@@ -125,7 +127,7 @@ export function seed(db) {
   const rng = mulberry32(2026);
   const NOW = Date.now();
   const START = NOW - 30 * 3600e3;
-  const pw = { admin: hashPassword(DEMO_PASSWORDS.admin), judge: hashPassword(DEMO_PASSWORDS.judge), participant: hashPassword(DEMO_PASSWORDS.participant), others: hashPassword(DEMO_PASSWORDS.others) };
+  const pw = { admin: hashPassword(ADMIN_PASSWORD), judge: hashPassword(DEMO_PASSWORDS.judge), participant: hashPassword(DEMO_PASSWORDS.participant), others: hashPassword(DEMO_PASSWORDS.others) };
 
   tx(db, () => {
     for (const t of ["audit", "comments", "votes", "assignments", "conflicts", "projects", "team_members", "teams", "sessions", "judges", "users", "rubric", "prizes", "tracks", "event"])
@@ -221,5 +223,5 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   seed(db);
   const count = (t) => db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get().n;
   console.log(`Seeded ${DEFAULT_DB}: ${count("users")} users, ${count("teams")} teams, ${count("projects")} projects, ${count("judges")} judges, ${count("conflicts")} conflicts, ${count("votes")} votes`);
-  console.log("Demo logins: admin@hacktrack.dev / admin123 · judge@hacktrack.dev / judge123 · participant@hacktrack.dev / participant123 · solo@hacktrack.dev / participant123");
+  console.log((process.env.HACKTRACK_ADMIN_PASSWORD ? "Admin password: from HACKTRACK_ADMIN_PASSWORD · " : "Demo logins: admin@hacktrack.dev / admin123 · ") + "judge@hacktrack.dev / judge123 · participant@hacktrack.dev / participant123 · solo@hacktrack.dev / participant123");
 }

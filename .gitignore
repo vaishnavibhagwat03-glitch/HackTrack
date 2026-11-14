@@ -11,6 +11,7 @@ hacktrack-client/build/
 # Backend database
 server/data/*.db
 server/data/*.db-*
+.env
 .env*.local
 
 # Local tooling output

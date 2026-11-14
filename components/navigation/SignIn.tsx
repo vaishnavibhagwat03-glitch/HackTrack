@@ -14,12 +14,14 @@ import { Avatar, Badge, Button, Field, StatusDot, fieldClass } from "@/component
 import { cn } from "@/lib/utils";
 
 // Seeded demo accounts (server/src/seed.mjs).
-const DEMO: { name: string; email: string; password: string; role: Role; blurb: string }[] = [
+type DemoAccount = { name: string; email: string; password: string; role: Role; blurb: string };
+const DEMO = ([
   { name: "Vaishnavi Bhagwat", email: "participant@hacktrack.dev", password: "participant123", role: "participant", blurb: "Team Void Runners · draft submission, voting" },
   { name: "Rohan Kulkarni", email: "solo@hacktrack.dev", password: "participant123", role: "participant", blurb: "No team yet · create or join with an invite code" },
   { name: "Lena Brandt", email: "judge@hacktrack.dev", password: "judge123", role: "judge", blurb: "Judging queue with the rubric's sub-criteria" },
   { name: "Sumit Bansode", email: "admin@hacktrack.dev", password: "admin123", role: "admin", blurb: "Judge assignment, conflicts, undo, results" },
-];
+  // Public deployments give the admin a private password, so its one-click card is hidden there.
+] satisfies DemoAccount[]).filter((u: DemoAccount) => !(u.role === "admin" && process.env.NEXT_PUBLIC_HIDE_ADMIN_DEMO === "1"));
 
 export function SignIn() {
   const router = useRouter();
