@@ -46,6 +46,15 @@ npm run client:console      # role-based console menus (report Figures 4 and 5)
 npm run client:bench        # sorting/searching benchmark (report Tables 4 and 5)
 ```
 
+### Run it with Docker / deploy it
+
+```bash
+cp .env.example .env        # set HACKTRACK_ADMIN_PASSWORD
+docker compose up -d --build   # -> http://localhost
+```
+
+On a Docker deployment the admin uses the password from `.env`, not `admin123`. The step-by-step guide, from installing Docker to a public HTTPS address, is in [DEPLOYMENT.md](DEPLOYMENT.md).
+
 ## Where each data structure does a real job
 
 All structures are hand-written C++ class templates in [hacktrack-client/src/ds](hacktrack-client/src/ds). `std::string` is used for text; no STL containers (`vector`, `map`, `list`, …).

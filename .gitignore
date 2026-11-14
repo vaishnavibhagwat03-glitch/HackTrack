@@ -17,3 +17,6 @@ server/data/*.db-*
 # Local tooling output
 graphify-out/
 .vscode/
+
+# Session notes (local only)
+HANDOFF.md
