@@ -101,7 +101,7 @@ npm test     # server rule tests + C++ data-structure/algorithm tests + report T
 
 | Suite | What | Count |
 |---|---|---|
-| [server/test](server/test/server.test.mjs) | Server rules (auth, deadline, teams, conflicts, scores, votes, restore) | 12 |
+| [server/test](server/test/server.test.mjs) | Server rules (auth, Google sign-in, deadline, teams, conflicts, scores, votes, restore) | 16 |
 | [test_ds.cpp](hacktrack-client/tests/test_ds.cpp) | Every data structure, sort and search | 17 tests, 184 checks |
 | [test_algorithms.cpp](hacktrack-client/tests/test_algorithms.cpp) | Assignment, ranking, normalisation, vote tally, rubric | 8 |
 | [test_integration.cpp](hacktrack-client/tests/test_integration.cpp) via [integration.mjs](scripts/integration.mjs) | Report Table 3 test cases against a fresh server | 9 |
