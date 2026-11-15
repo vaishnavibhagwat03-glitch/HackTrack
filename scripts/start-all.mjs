@@ -19,6 +19,12 @@ if (!existsSync(join(root, "node_modules"))) {
   process.exit(1);
 }
 
+// Optional local settings (.env.local, never committed). Next.js reads it too.
+// Google sign-in needs the same client ID in the website and the server.
+try { process.loadEnvFile(join(root, ".env.local")); } catch {}
+process.env.GOOGLE_CLIENT_ID ??= process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+if (!process.env.GOOGLE_CLIENT_ID) delete process.env.GOOGLE_CLIENT_ID;
+
 const children = [];
 const colors = { server: "\x1b[36m", client: "\x1b[33m", web: "\x1b[35m" };
 function start(name, cmd, args, opts = {}) {

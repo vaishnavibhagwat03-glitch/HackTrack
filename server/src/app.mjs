@@ -3,6 +3,7 @@
 // conflict search, vote tallying and caching all happen in the C++ client.
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { tx } from "./db.mjs";
+import { GoogleTokenError } from "./google.mjs";
 
 // ── helpers ──────────────────────────────────────────────────
 
@@ -27,8 +28,11 @@ export function hashPassword(pw) {
   const salt = randomBytes(16).toString("hex");
   return `${salt}:${scryptSync(pw, salt, 32).toString("hex")}`;
 }
+// Stored instead of a hash for accounts created with Google: no password matches it.
+const NO_PASSWORD = "google-only";
 function checkPassword(pw, stored) {
-  const [salt, hash] = stored.split(":");
+  const [salt, hash] = String(stored).split(":");
+  if (!salt || !/^[0-9a-f]{64}$/.test(hash ?? "")) return false;
   const got = scryptSync(pw, salt, 32);
   return timingSafeEqual(got, Buffer.from(hash, "hex"));
 }
@@ -77,7 +81,8 @@ const eventOut = (e) => ({
 
 // ── app ──────────────────────────────────────────────────────
 
-export function createApp(db) {
+/** google: verifier from createGoogleVerifier(); without one, Google sign-in is switched off. */
+export function createApp(db, { google = null } = {}) {
   const q = (sql) => db.prepare(sql);
   const event = () => q("SELECT * FROM event WHERE id = 1").get();
 
@@ -217,6 +222,34 @@ export function createApp(db) {
     ctx.user = userById(u.id);
     audit(ctx, "USER_LOGGED_IN", u.handle, "Session issued");
     return { token, user: userOut(ctx.user) };
+  });
+
+  // Sign in with Google. The browser got an ID token from Google; the C++ client
+  // forwards it here. A verified Google email signs in to the account with that
+  // email, or creates a new participant account.
+  route("POST", "/v1/auth/google", (ctx) => {
+    if (!google?.enabled) throw bad("GoogleSignInDisabled", "Google sign-in is not set up on this server");
+    const credential = str(ctx.body.credential, "credential", { min: 20, max: 8192 });
+    let g;
+    try { g = google.verify(credential); } catch (e) {
+      if (!(e instanceof GoogleTokenError)) throw e;
+      if (e.retry) throw new HttpError(503, "GoogleKeysLoading", "Google sign-in is starting up. Try again in a moment.");
+      throw new HttpError(401, "InvalidGoogleToken", `Google sign-in could not be verified (${e.reason})`);
+    }
+    let u = q("SELECT * FROM users WHERE email = ?").get(g.email);
+    const created = !u;
+    if (created) {
+      const id = nextId("users", "u_", 3);
+      const name = (g.name || g.email.split("@")[0]).slice(0, 80);
+      q("INSERT INTO users (id, name, email, handle, role, country, password_hash, created_at) VALUES (?, ?, ?, ?, 'participant', '', ?, ?)")
+        .run(id, name, g.email, `PARTICIPANT_${id.slice(2)}`, NO_PASSWORD, now());
+      u = q("SELECT * FROM users WHERE id = ?").get(id);
+    }
+    const token = newSession(u.id);
+    ctx.user = userById(u.id);
+    if (created) audit(ctx, "USER_SIGNED_UP", u.handle, "Participant account created with Google");
+    else audit(ctx, "USER_LOGGED_IN", u.handle, "Session issued (Google)");
+    return { status: created ? 201 : 200, body: { token, user: userOut(ctx.user), created } };
   });
 
   route("POST", "/v1/auth/logout", (ctx) => {

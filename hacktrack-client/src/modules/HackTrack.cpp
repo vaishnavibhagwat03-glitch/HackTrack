@@ -204,6 +204,21 @@ json HackTrack::signup(const json& body) {
     return res;
 }
 
+json HackTrack::googleLogin(const json& body) {
+    // Validated before sending: a Google ID token is three base64url parts.
+    std::string cred = body.value("credential", std::string());
+    int dots = 0;
+    for (char c : cred) if (c == '.') ++dots;
+    if (cred.size() < 20 || dots != 2) throw ApiError(400, "InvalidField", "Missing or malformed Google credential");
+    json b = {{"credential", cred}};
+    json res = call("POST", "/v1/auth/google", &b, "", "Sign in with Google");  // the trace shows this label, never the token
+    Session s{res["token"].get<std::string>(), userFrom(res["user"]), nowMs()};
+    sessions_.put(s.token, s);
+    users_.put(s.user.id, s.user);
+    trace_.ds("HashChaining<token,Session>", "put", s.user.handle + " as " + s.user.role + " via Google");
+    return res;
+}
+
 json HackTrack::logout(const std::string& token) {
     if (!token.empty()) {
         try { call("POST", "/v1/auth/logout", nullptr, token, "Log out"); } catch (const ApiError&) {}

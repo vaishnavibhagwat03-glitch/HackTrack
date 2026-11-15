@@ -138,3 +138,80 @@ test("non-admins cannot use admin endpoints", () => {
   assert.equal(call("DELETE", "/v1/teams/t01", null, j).status, 403);
   assert.equal(call("GET", "/v1/users").status, 401);
 });
+
+// ── Sign in with Google ──────────────────────────────────────
+// The tests play Google: they make an RSA key, publish its public half as the
+// "Google keys", and sign ID tokens with the private half.
+import { generateKeyPairSync, sign as rsaSign } from "node:crypto";
+import { createGoogleVerifier } from "../src/google.mjs";
+
+const CLIENT_ID = "test-app.apps.googleusercontent.com";
+const googleKey = generateKeyPairSync("rsa", { modulusLength: 2048 });
+const strangerKey = generateKeyPairSync("rsa", { modulusLength: 2048 });
+const jwks = { keys: [{ ...googleKey.publicKey.export({ format: "jwk" }), kid: "k1", alg: "RS256", use: "sig" }] };
+
+function idToken(claims = {}, { key = googleKey.privateKey, kid = "k1" } = {}) {
+  const t = Math.floor(Date.now() / 1000);
+  const enc = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+  const body = `${enc({ alg: "RS256", kid, typ: "JWT" })}.${enc({
+    iss: "https://accounts.google.com", aud: CLIENT_ID, sub: "1234567890", iat: t, exp: t + 3600,
+    email: "ada@gmail.com", email_verified: true, name: "Ada Lovelace", ...claims,
+  })}`;
+  return `${body}.${rsaSign("RSA-SHA256", Buffer.from(body), key).toString("base64url")}`;
+}
+
+async function googleSetup() {
+  const db = openDb(":memory:");
+  seed(db);
+  const google = createGoogleVerifier({ clientId: CLIENT_ID, fetchKeys: async () => jwks });
+  await google.ready();
+  const handle = createApp(db, { google });
+  const call = (method, path, body) => handle({ method, path, query: new URLSearchParams(), body, ip: "test", headers: {} });
+  return { call, g: (credential) => call("POST", "/v1/auth/google", { credential }) };
+}
+
+test("Google: new verified email creates a participant; second sign-in reuses it", async () => {
+  const { g } = await googleSetup();
+  const first = g(idToken());
+  assert.equal(first.status, 201);
+  assert.equal(first.body.created, true);
+  assert.equal(first.body.user.role, "participant");
+  assert.equal(first.body.user.name, "Ada Lovelace");
+  const again = g(idToken());
+  assert.equal(again.status, 200);
+  assert.equal(again.body.user.id, first.body.user.id);
+});
+
+test("Google: an existing account with the same email signs in to that account", async () => {
+  const { g } = await googleSetup();
+  const r = g(idToken({ email: "Judge@HackTrack.dev" }));
+  assert.equal(r.status, 200);
+  assert.equal(r.body.user.role, "judge");
+});
+
+test("Google: forged, foreign, expired and unverified tokens are rejected", async () => {
+  const { g } = await googleSetup();
+  const reject = (tok) => { const r = g(tok); assert.equal(r.status, 401, JSON.stringify(r.body)); assert.equal(r.body.error, "InvalidGoogleToken"); };
+  reject(idToken({}, { key: strangerKey.privateKey }));              // signed by someone else
+  reject(idToken({ aud: "another-app.apps.googleusercontent.com" })); // meant for another app
+  reject(idToken({ iss: "https://evil.example" }));                   // not issued by Google
+  reject(idToken({ exp: Math.floor(Date.now() / 1000) - 3600 }));     // expired
+  reject(idToken({ email_verified: false }));                          // email not verified
+  const [h, p, s] = idToken().split(".");
+  const altered = Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(p, "base64url")), email: "admin@hacktrack.dev" })).toString("base64url");
+  reject(`${h}.${altered}.${s}`);                                       // payload changed after signing
+});
+
+test("Google: switched off without a client ID; Google-only accounts have no password", async () => {
+  const db = openDb(":memory:");
+  seed(db);
+  const off = createApp(db);
+  const r = off({ method: "POST", path: "/v1/auth/google", query: new URLSearchParams(), body: { credential: "x".repeat(40) }, ip: "t", headers: {} });
+  assert.equal(r.status, 400);
+  assert.equal(r.body.error, "GoogleSignInDisabled");
+
+  const { g, call } = await googleSetup();
+  g(idToken({ email: "new@gmail.com" }));
+  for (const password of ["", "google-only", "anything"])
+    assert.equal(call("POST", "/v1/auth/login", { email: "new@gmail.com", password }).status, 401);
+});

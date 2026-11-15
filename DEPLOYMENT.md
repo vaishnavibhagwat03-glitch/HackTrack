@@ -11,6 +11,7 @@ Contents
 5. [Day-to-day commands](#5-day-to-day-commands)
 6. [When something goes wrong](#6-when-something-goes-wrong)
 7. [Security notes](#7-security-notes)
+8. [Optional: Sign in with Google](#8-optional-sign-in-with-google)
 
 ---
 
@@ -352,6 +353,81 @@ docker compose down -v            # -v also deletes the volumes
 - **Fault injection** (Administration → System) makes the server fail on purpose to show the retry queue. Only the admin can use it; set it back to 0% ("Fault injection off") after the demo.
 - **Containers run as unprivileged users**, not root.
 - **Backups are your job.** The database is one file on a volume; copy it out regularly (section 5) if the data matters.
+
+---
+
+## 8. Optional: Sign in with Google
+
+A **Continue with Google** button appears on the sign-in page once you give HackTrack a Google *client ID*. Without one, the button is hidden and nothing else changes.
+
+### How it works
+
+```
+browser ──(1) Google popup──► Google        user picks their account
+browser ◄─(2) ID token──────── Google        a JWT signed by Google: email, name, "for app X"
+browser ──(3) POST /api/auth/google ──► C++ client ──► Node server
+                                        checks the     checks Google's signature with Google's
+                                        token's shape  public keys, the app ID, expiry, verified
+                                                       email; signs in or creates a participant
+browser ◄─(4) HackTrack session token ── C++ client caches it in its hash table, like any login
+```
+
+- The website still talks only to the C++ client. Google is only the identity check.
+- A Google email that matches an existing account signs in to **that** account. A new email becomes a **participant**. Admins can change roles under Administration as usual.
+- Accounts created with Google have no password. Their owners always use the Google button.
+- There is no client *secret*. The client ID is public; it appears in the page source, which is normal.
+
+### B-G1. Create the client ID (once, about 10 minutes)
+
+1. Open <https://console.cloud.google.com/> and sign in with your Google account.
+2. Create a project: project picker (top bar) → **New project** → name it `HackTrack` → **Create**, then select it.
+3. Go to **APIs & Services → OAuth consent screen**. Newer consoles call it **Google Auth Platform**; click **Get started**.
+   - App name `HackTrack`, user support email: yours.
+   - Audience: **External**.
+   - Contact email: yours. Accept the policy, then **Create**.
+4. **Audience → Test users → Add users**: add the Gmail addresses that should be able to sign in while the app is in *Testing* mode (you, your teammates, your guide). To let anyone sign in, click **Publish app**. HackTrack asks only for name and email, which does not need Google's review.
+5. **Clients** (or *Credentials → Create credentials → OAuth client ID*):
+   - Application type: **Web application**, name `HackTrack web`.
+   - **Authorized JavaScript origins**: add every address the site is opened from, exactly as in the browser bar, with no trailing slash:
+     - `http://localhost` (Docker on your PC)
+     - `http://localhost:3000` (`npm run start:all`)
+     - your public address, for example `https://203-0-113-7.sslip.io` or `https://hacktrack.yourdomain.com`
+   - Authorized redirect URIs: leave empty. HackTrack uses Google's popup, not a redirect.
+   - **Create**, then copy the **Client ID** (it ends in `.apps.googleusercontent.com`).
+
+> Google accepts `localhost` over plain HTTP, but a public site must be **HTTPS with a name**, not a bare IP address. Do B7 (HTTPS) first. If Google rejects the `sslip.io` name, use a real domain.
+
+### B-G2. Switch it on
+
+**With Docker** (your PC or the server): add the ID to `.env` and rebuild. The website build bakes the ID into the page, so a restart alone is not enough.
+
+```ini
+GOOGLE_CLIENT_ID=1234567890-abc123.apps.googleusercontent.com
+```
+
+```bash
+docker compose up -d --build
+docker compose logs server | grep "Google sign-in"    # should say: Google sign-in on
+```
+
+**Without Docker** (`npm run start:all`): create `.env.local` in the project folder (never committed):
+
+```ini
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=1234567890-abc123.apps.googleusercontent.com
+```
+
+`start-all` passes the same ID to the server. Restart it.
+
+### If it does not work
+
+| Symptom | Cause |
+|---|---|
+| No Google button | The ID was not present when the website was built: rebuild (Docker) or restart `start-all` |
+| Google popup says **"origin is not allowed"** or `invalid_client` | The exact address in the browser bar is missing from *Authorized JavaScript origins* (check `http` vs `https`, the port, `www`). Changes can take a few minutes to apply |
+| Google says **"access blocked … app has not completed verification"** or the account cannot continue | The app is in Testing mode and that Gmail address is not a test user (B-G1 step 4) |
+| HackTrack says "Google sign-in is not set up on this server" | The server did not get `GOOGLE_CLIENT_ID`: check `.env`, then `docker compose up -d` |
+| HackTrack says "could not be verified (Token is for a different app)" | The website and the server have different client IDs |
+| HackTrack says "could not be verified (Token expired)" | The server's clock is wrong: `timedatectl` on the server should show `System clock synchronized: yes` |
 
 ---
 

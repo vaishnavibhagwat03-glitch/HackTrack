@@ -55,6 +55,8 @@ docker compose up -d --build   # -> http://localhost
 
 On a Docker deployment the admin uses the password from `.env`, not `admin123`. The step-by-step guide, from installing Docker to a public HTTPS address, is in [DEPLOYMENT.md](DEPLOYMENT.md).
 
+**Sign in with Google** (optional): set a Google OAuth client ID (`GOOGLE_CLIENT_ID` in `.env` for Docker, `NEXT_PUBLIC_GOOGLE_CLIENT_ID` in `.env.local` for `start:all`). The C++ client forwards Google's ID token and the server verifies its signature with `node:crypto`. Setup: [DEPLOYMENT.md §8](DEPLOYMENT.md#8-optional-sign-in-with-google).
+
 ## Where each data structure does a real job
 
 All structures are hand-written C++ class templates in [hacktrack-client/src/ds](hacktrack-client/src/ds). `std::string` is used for text; no STL containers (`vector`, `map`, `list`, …).

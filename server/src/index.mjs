@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import { createApp } from "./app.mjs";
 import { openDb, DEFAULT_DB } from "./db.mjs";
 import { seed } from "./seed.mjs";
+import { createGoogleVerifier } from "./google.mjs";
 
 const PORT = Number(process.env.PORT ?? 4000);
 const HOST = process.env.HOST ?? "127.0.0.1";
@@ -14,7 +15,10 @@ if (!db.prepare("SELECT 1 FROM event WHERE id = 1").get()) {
   console.log("Empty database - seeding demo data...");
   seed(db);
 }
-const handle = createApp(db);
+// Sign in with Google is on when GOOGLE_CLIENT_ID is set (see DEPLOYMENT.md).
+const google = createGoogleVerifier({ clientId: process.env.GOOGLE_CLIENT_ID });
+if (google.enabled) google.ready();
+const handle = createApp(db, { google });
 
 const server = createServer((req, res) => {
   const started = Date.now();
@@ -49,5 +53,5 @@ const server = createServer((req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`HackTrack server on http://${HOST}:${PORT}  (db: ${DEFAULT_DB}${chaos ? `, chaos ${chaos}` : ""})`);
+  console.log(`HackTrack server on http://${HOST}:${PORT}  (db: ${DEFAULT_DB}${chaos ? `, chaos ${chaos}` : ""}, Google sign-in ${google.enabled ? "on" : "off"})`);
 });

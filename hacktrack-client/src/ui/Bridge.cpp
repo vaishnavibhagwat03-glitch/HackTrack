@@ -93,6 +93,7 @@ int runBridge(HackTrack& app, int port, const std::string& listenHost, const std
     // auth
     srv.Post("/api/auth/login", wrap([&](auto& r, auto&) { return app.login(body(r)); }));
     srv.Post("/api/auth/signup", wrap([&](auto& r, auto&) { return app.signup(body(r)); }));
+    srv.Post("/api/auth/google", wrap([&](auto& r, auto&) { return app.googleLogin(body(r)); }));
     srv.Post("/api/auth/logout", wrap([&](auto&, auto& t) { return app.logout(t); }));
     srv.Get("/api/me", wrap([&](auto&, auto& t) { return app.me(t); }));
 

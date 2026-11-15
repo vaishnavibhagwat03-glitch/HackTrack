@@ -14,6 +14,8 @@ services:
     environment:
       # Used only when the database is created (first start or a re-seed).
       HACKTRACK_ADMIN_PASSWORD: ${HACKTRACK_ADMIN_PASSWORD:?Set HACKTRACK_ADMIN_PASSWORD in .env}
+      # Optional: Sign in with Google. Empty = switched off.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     volumes:
       - hacktrack-data:/data
     restart: unless-stopped
@@ -34,6 +36,8 @@ services:
       args:
         NEXT_PUBLIC_HACKTRACK_API: /api
         NEXT_PUBLIC_HIDE_ADMIN_DEMO: "1"
+        # Same client ID as the server; baked into the page at build time.
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     restart: unless-stopped
 
   proxy:

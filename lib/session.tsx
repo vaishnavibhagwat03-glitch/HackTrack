@@ -13,6 +13,7 @@ type Session = {
   boot: Bootstrap | null;
   login: (email: string, password: string) => Promise<User>;
   signup: (name: string, email: string, password: string) => Promise<User>;
+  loginWithGoogle: (credential: string) => Promise<User>;
   signOut: () => void;
   refreshUser: () => Promise<void>;
 };
@@ -21,6 +22,7 @@ const Ctx = createContext<Session>({
   user: null, ready: false, boot: null,
   login: async () => { throw new Error("no session provider"); },
   signup: async () => { throw new Error("no session provider"); },
+  loginWithGoogle: async () => { throw new Error("no session provider"); },
   signOut: () => {}, refreshUser: async () => {},
 });
 
@@ -73,6 +75,15 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     return r.user;
   }, [loadBoot]);
 
+  // Google's ID token goes to the C++ client, which forwards it to the server to verify.
+  const loginWithGoogle = useCallback(async (credential: string) => {
+    const r = await api<{ token: string; user: User }>("/auth/google", { method: "POST", body: { credential }, auth: false });
+    setToken(r.token);
+    setUser(r.user);
+    loadBoot();
+    return r.user;
+  }, [loadBoot]);
+
   const signOut = useCallback(() => {
     api("/auth/logout", { method: "POST" }).catch(() => {});
     setToken(null);
@@ -80,7 +91,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     try { sessionStorage.removeItem("hacktrack.booted"); } catch {}
   }, []);
 
-  return <Ctx.Provider value={{ user, ready, boot, login, signup, signOut, refreshUser }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ user, ready, boot, login, signup, loginWithGoogle, signOut, refreshUser }}>{children}</Ctx.Provider>;
 }
 
 export const useSession = () => useContext(Ctx);

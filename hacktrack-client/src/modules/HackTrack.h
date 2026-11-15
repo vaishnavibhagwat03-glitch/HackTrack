@@ -29,6 +29,7 @@ public:
     // ── session & auth ──
     json login(const json& body);
     json signup(const json& body);
+    json googleLogin(const json& body);  // forwards Google's ID token; server verifies it
     json logout(const std::string& token);
     json me(const std::string& token);
     Session requireSession(const std::string& token);

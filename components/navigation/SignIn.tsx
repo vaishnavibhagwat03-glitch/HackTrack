@@ -12,6 +12,7 @@ import { Logo } from "@/components/ui/Logo";
 import { EventGrid } from "@/components/ui/EventGrid";
 import { Avatar, Badge, Button, Field, StatusDot, fieldClass } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
+import { GoogleButton, googleSignInEnabled } from "./GoogleButton";
 
 // Seeded demo accounts (server/src/seed.mjs).
 type DemoAccount = { name: string; email: string; password: string; role: Role; blurb: string };
@@ -26,12 +27,13 @@ const DEMO = ([
 export function SignIn() {
   const router = useRouter();
   const params = useSearchParams();
-  const { login, signup, boot } = useSession();
+  const { login, signup, loginWithGoogle, boot } = useSession();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string>();
+  const [googleError, setGoogleError] = useState<string>();
   const [pending, setPending] = useState<string | null>(null);
 
   const go = () => {
@@ -42,11 +44,12 @@ export function SignIn() {
   const run = async (key: string, fn: () => Promise<unknown>) => {
     setPending(key);
     setError(undefined);
+    setGoogleError(undefined);
     try {
       await fn();
       go();
     } catch (e) {
-      setError(errorMessage(e));
+      (key === "google" ? setGoogleError : setError)(errorMessage(e));
       setPending(null);
     }
   };
@@ -84,7 +87,20 @@ export function SignIn() {
             The C++ client checks your password with the server and keeps your session token and role in its hash table.
           </p>
 
-          <form onSubmit={submit} className="mt-8 space-y-4" noValidate>
+          {googleSignInEnabled && (
+            <div className="mt-8">
+              <GoogleButton busy={!!pending} onCredential={(c) => run("google", () => loginWithGoogle(c))} />
+              {pending === "google" && <p className="mt-2 flex items-center justify-center gap-2 text-[13px] text-muted"><Loader2 className="size-3.5 animate-spin" />Checking with Google through the C++ client…</p>}
+              {googleError && <p role="alert" className="mt-2 text-center text-[13px] text-danger">{googleError}</p>}
+              <div className="mt-6 flex items-center gap-3">
+                <span className="h-px flex-1 bg-line" />
+                <span className="label">or with email</span>
+                <span className="h-px flex-1 bg-line" />
+              </div>
+            </div>
+          )}
+
+          <form onSubmit={submit} className={cn(googleSignInEnabled ? "mt-6" : "mt-8", "space-y-4")} noValidate>
             {mode === "signup" && (
               <Field label="Full name" htmlFor="name">
                 <input id="name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} className={cn(fieldClass, "h-11")} placeholder="Your name" />
