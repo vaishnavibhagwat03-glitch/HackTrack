@@ -1,6 +1,7 @@
 // Console mode: role-based menus (report Section 2.2, Figures 4 and 5).
 // Uses exactly the same HackTrack methods as the website does via the bridge.
 #include <cstdio>
+#include <cstdlib>
 #include <functional>
 #include <iostream>
 #include <string>
@@ -265,7 +266,10 @@ int runConsole(HackTrack& app) {
 int runDemo(HackTrack& app) {
     std::printf("Populating demo judging through the C++ client...\n");
     try {
-        std::string admin = app.login({{"email", "admin@hacktrack.dev"}, {"password", "admin123"}})["token"];
+        // Deployments give the admin a private password (same variable the server's seed uses).
+        const char* envPw = std::getenv("HACKTRACK_ADMIN_PASSWORD");
+        std::string adminPw = envPw && *envPw ? envPw : "admin123";
+        std::string admin = app.login({{"email", "admin@hacktrack.dev"}, {"password", adminPw}})["token"];
         json a = app.runAssignment(admin, {{"mode", "fill"}});
         std::printf("  Assigned judges: %d new, %d shortages\n", a["created"].get<int>(), (int)a["shortages"].size());
 

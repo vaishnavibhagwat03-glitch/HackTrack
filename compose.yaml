@@ -20,6 +20,9 @@ services:
 
   client:
     build: ./hacktrack-client
+    environment:
+      # Only --demo mode uses it, to sign in as admin and assign judges.
+      HACKTRACK_ADMIN_PASSWORD: ${HACKTRACK_ADMIN_PASSWORD:?Set HACKTRACK_ADMIN_PASSWORD in .env}
     depends_on:
       server:
         condition: service_healthy
