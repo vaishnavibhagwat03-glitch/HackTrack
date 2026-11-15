@@ -68,7 +68,9 @@ export function GoogleButton({ onCredential, busy }: { onCredential: (credential
   if (failed) return <p className="text-center text-[13px] text-muted">Google sign-in could not load. Use your email and password instead.</p>;
   return (
     <div aria-busy={busy} className={busy ? "pointer-events-none opacity-50 transition-opacity" : "transition-opacity"}>
-      <div ref={box} className="flex min-h-11 w-full justify-center" />
+      {/* Google's button is an iframe; on a dark page the browser paints it a white
+          backdrop unless its container uses the light colour scheme. */}
+      <div ref={box} className="flex min-h-11 w-full justify-center [color-scheme:light]" />
     </div>
   );
 }
