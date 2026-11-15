@@ -22,7 +22,9 @@ const DEMO = ([
   { name: "Lena Brandt", email: "judge@hacktrack.dev", password: "judge123", role: "judge", blurb: "Judging queue with the rubric's sub-criteria" },
   { name: "Sumit Bansode", email: "admin@hacktrack.dev", password: "admin123", role: "admin", blurb: "Judge assignment, conflicts, undo, results" },
   // Public deployments give the admin a private password, so its one-click card is hidden there.
-] satisfies DemoAccount[]).filter((u: DemoAccount) => !(u.role === "admin" && process.env.NEXT_PUBLIC_HIDE_ADMIN_DEMO === "1"));
+] satisfies DemoAccount[]).filter((u: DemoAccount) => !(u.role === "admin" && process.env.NEXT_PUBLIC_HIDE_ADMIN_DEMO === "1"))
+  // HACKTRACK_DEMO_LOGINS=off: the server refuses the demo passwords, so no cards at all.
+  .filter(() => process.env.NEXT_PUBLIC_DEMO_LOGINS !== "off");
 
 export function SignIn() {
   const router = useRouter();
@@ -126,6 +128,7 @@ export function SignIn() {
             </p>
           </form>
 
+          {DEMO.length > 0 && <>
           <div className="my-8 flex items-center gap-3">
             <span className="h-px flex-1 bg-line" />
             <span className="label">Demo accounts · seeded</span>
@@ -147,6 +150,7 @@ export function SignIn() {
               </motion.li>
             ))}
           </ul>
+          </>}
         </div>
       </section>
     </div>

@@ -5,7 +5,8 @@
 #   ./scripts/smoke-test.sh http://203.0.113.7
 #   ./scripts/smoke-test.sh https://hacktrack.example.com
 #
-# Needs curl. Reads HACKTRACK_ADMIN_PASSWORD from the environment or from .env.
+# Needs curl. Reads HACKTRACK_ADMIN_PASSWORD and HACKTRACK_DEMO_LOGINS from the
+# environment or from .env.
 set -u
 
 BASE="${1:-http://localhost}"
@@ -14,6 +15,10 @@ if [ -z "${HACKTRACK_ADMIN_PASSWORD:-}" ] && [ -f .env ]; then
   HACKTRACK_ADMIN_PASSWORD="$(grep -E '^HACKTRACK_ADMIN_PASSWORD=' .env | head -1 | cut -d= -f2-)"
 fi
 ADMIN_PW="${HACKTRACK_ADMIN_PASSWORD:-}"
+if [ -z "${HACKTRACK_DEMO_LOGINS:-}" ] && [ -f .env ]; then
+  HACKTRACK_DEMO_LOGINS="$(grep -E '^HACKTRACK_DEMO_LOGINS=' .env | head -1 | cut -d= -f2-)"
+fi
+DEMO_LOGINS="${HACKTRACK_DEMO_LOGINS:-on}"
 
 failures=0
 pass() { printf '  \033[32mPASS\033[0m %s\n' "$1"; }
@@ -41,7 +46,7 @@ check "C++ client reaches the Node server" '[[ "$health" == *"\"server\":{"*"\"o
 check "response comes from the C++ client" 'curl -sI "$BASE/api/health" | grep -qi "x-served-by: HackTrack-Cpp-Client"'
 
 echo "Accounts (Node server + SQLite, via the C++ client)"
-check "published demo admin password is rejected" '[[ "$(login admin@hacktrack.dev admin123)" == *InvalidCredentials* ]]'
+check "published demo admin password is rejected" '[[ "$(login admin@hacktrack.dev admin123)" =~ (InvalidCredentials|DemoLoginsOff) ]]'
 if [ -n "$ADMIN_PW" ]; then
   admin="$(login admin@hacktrack.dev "$ADMIN_PW")"
   check "admin signs in with the private password" '[[ "$admin" == *"\"token\""* ]]'
@@ -51,7 +56,11 @@ if [ -n "$ADMIN_PW" ]; then
 else
   fail "HACKTRACK_ADMIN_PASSWORD not set (export it or run from the folder with .env)"
 fi
-check "demo judge account signs in" '[[ "$(login judge@hacktrack.dev judge123)" == *"\"token\""* ]]'
+if [ "$DEMO_LOGINS" = off ]; then
+  check "demo judge password is refused (demo logins off)" '[[ "$(login judge@hacktrack.dev judge123)" == *DemoLoginsOff* ]]'
+else
+  check "demo judge account signs in" '[[ "$(login judge@hacktrack.dev judge123)" == *"\"token\""* ]]'
+fi
 
 echo
 if [ "$failures" -eq 0 ]; then echo "All checks passed."; else echo "$failures check(s) failed."; fi

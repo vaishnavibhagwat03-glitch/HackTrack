@@ -82,7 +82,14 @@ const eventOut = (e) => ({
 // ── app ──────────────────────────────────────────────────────
 
 /** google: verifier from createGoogleVerifier(); without one, Google sign-in is switched off. */
-export function createApp(db, { google = null } = {}) {
+/**
+ * google           - Google ID-token verifier (google.mjs), or null when Google sign-in is off.
+ * blockedPasswords - passwords refused at sign-in and sign-up. A public deployment passes the
+ *                    published demo passwords here (HACKTRACK_DEMO_LOGINS=off), so nobody can
+ *                    sign in as the demo judge or participants.
+ */
+export function createApp(db, { google = null, blockedPasswords = [] } = {}) {
+  const blocked = new Set(blockedPasswords);
   const q = (sql) => db.prepare(sql);
   const event = () => q("SELECT * FROM event WHERE id = 1").get();
 
@@ -202,6 +209,7 @@ export function createApp(db, { google = null } = {}) {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw bad("InvalidField", "Enter a valid email address");
     const password = typeof b.password === "string" ? b.password : "";
     if (password.length < 6) throw bad("InvalidField", "Password must be at least 6 characters");
+    if (blocked.has(password)) throw bad("InvalidField", "This password is published on the demo page. Choose another one");
     if (q("SELECT 1 FROM users WHERE email = ?").get(email)) throw conflict("EmailTaken", "An account with this email already exists");
     const id = nextId("users", "u_", 3);
     const handle = `PARTICIPANT_${id.slice(2)}`;
@@ -215,6 +223,8 @@ export function createApp(db, { google = null } = {}) {
 
   route("POST", "/v1/auth/login", (ctx) => {
     const email = str(ctx.body.email ?? "", "Email").toLowerCase();
+    if (blocked.has(String(ctx.body.password ?? "")))
+      throw new HttpError(403, "DemoLoginsOff", "Demo accounts are switched off on this server");
     const u = q("SELECT * FROM users WHERE email = ?").get(email);
     if (!u || !checkPassword(String(ctx.body.password ?? ""), u.password_hash))
       throw new HttpError(401, "InvalidCredentials", "Wrong email or password");

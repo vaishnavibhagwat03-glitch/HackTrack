@@ -3,12 +3,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { openDb } from "../src/db.mjs";
 import { createApp } from "../src/app.mjs";
-import { seed } from "../src/seed.mjs";
+import { DEMO_PASSWORDS, seed } from "../src/seed.mjs";
 
-function setup() {
+function setup(options) {
   const db = openDb(":memory:");
   seed(db);
-  const handle = createApp(db);
+  const handle = createApp(db, options);
   const call = (method, path, body, token) => {
     const url = new URL(path, "http://x");
     return handle({
@@ -25,6 +25,17 @@ test("login with wrong password is 401", () => {
   const r = call("POST", "/v1/auth/login", { email: "admin@hacktrack.dev", password: "nope" });
   assert.equal(r.status, 401);
   assert.equal(r.body.error, "InvalidCredentials");
+});
+
+test("demo logins off: published demo passwords refused at sign-in and sign-up", () => {
+  const { call } = setup({ blockedPasswords: Object.values(DEMO_PASSWORDS) });
+  const r = call("POST", "/v1/auth/login", { email: "judge@hacktrack.dev", password: "judge123" });
+  assert.equal(r.status, 403);
+  assert.equal(r.body.error, "DemoLoginsOff");
+  const s = call("POST", "/v1/auth/signup", { name: "Ada", email: "ada@x.dev", password: "participant123" });
+  assert.equal(s.status, 400);
+  assert.equal(call("POST", "/v1/auth/signup", { name: "Ada", email: "ada@x.dev", password: "a-real-password" }).status, 201);
+  assert.equal(call("POST", "/v1/auth/login", { email: "ada@x.dev", password: "a-real-password" }).status, 200);
 });
 
 test("login returns token and role", () => {

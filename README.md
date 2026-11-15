@@ -53,7 +53,7 @@ cp .env.example .env        # set HACKTRACK_ADMIN_PASSWORD
 docker compose up -d --build   # -> http://localhost
 ```
 
-On a Docker deployment the admin uses the password from `.env`, not `admin123`. The step-by-step guide, from installing Docker to a public HTTPS address, is in [DEPLOYMENT.md](DEPLOYMENT.md).
+On a Docker deployment the admin uses the password from `.env`, not `admin123`. For a real event, `HACKTRACK_DEMO_LOGINS=off` switches the published demo accounts off. After 5 wrong passwords the C++ client locks that address out for 15 minutes, without contacting the server. The step-by-step guide, from installing Docker to a public HTTPS address, is in [DEPLOYMENT.md](DEPLOYMENT.md).
 
 **Sign in with Google** (optional): set a Google OAuth client ID (`GOOGLE_CLIENT_ID` in `.env` for Docker, `NEXT_PUBLIC_GOOGLE_CLIENT_ID` in `.env.local` for `start:all`). The C++ client forwards Google's ID token and the server verifies its signature with `node:crypto`. Setup: [DEPLOYMENT.md §8](DEPLOYMENT.md#8-optional-sign-in-with-google).
 
@@ -75,7 +75,7 @@ All structures are hand-written C++ class templates in [hacktrack-client/src/ds]
 | 4 Trees | Binary search tree | [BST.h](hacktrack-client/src/ds/BST.h) | Project by id (built middle-first → balanced) | O(log n) avg |
 | 4 Trees | Max-heap | [MaxHeap.h](hacktrack-client/src/ds/MaxHeap.h) | Leaderboard; People's Choice vote ranking | build O(n), extract O(log n) |
 | 5 Graphs | Adjacency matrix + lists, BFS, DFS | [Graph.h](hacktrack-client/src/ds/Graph.h) | Judge–team conflict check before assignment | lookup O(1), traversal O(V + E) |
-| 6 Hashing | Separate chaining | [HashChaining.h](hacktrack-client/src/ds/HashChaining.h) | Session token → role; users; projects; id → index | O(1) avg |
+| 6 Hashing | Separate chaining | [HashChaining.h](hacktrack-client/src/ds/HashChaining.h) | Session token → role; users; projects; id → index; failed sign-ins → lockout | O(1) avg |
 | 6 Hashing | Linear probing | [HashProbing.h](hacktrack-client/src/ds/HashProbing.h) | Invite code → team (tombstones on delete) | O(1) avg |
 
 Algorithms from the report:
@@ -101,10 +101,10 @@ npm test     # server rule tests + C++ data-structure/algorithm tests + report T
 
 | Suite | What | Count |
 |---|---|---|
-| [server/test](server/test/server.test.mjs) | Server rules (auth, Google sign-in, deadline, teams, conflicts, scores, votes, restore) | 16 |
+| [server/test](server/test/server.test.mjs) | Server rules (auth, Google sign-in, demo logins off, deadline, teams, conflicts, scores, votes, restore) | 17 |
 | [test_ds.cpp](hacktrack-client/tests/test_ds.cpp) | Every data structure, sort and search | 17 tests, 184 checks |
 | [test_algorithms.cpp](hacktrack-client/tests/test_algorithms.cpp) | Assignment, ranking, normalisation, vote tally, rubric | 8 |
-| [test_integration.cpp](hacktrack-client/tests/test_integration.cpp) via [integration.mjs](scripts/integration.mjs) | Report Table 3 test cases against a fresh server | 9 |
+| [test_integration.cpp](hacktrack-client/tests/test_integration.cpp) via [integration.mjs](scripts/integration.mjs) | Report Table 3 test cases and the sign-in lockout, against a fresh server | 10 |
 
 Report Table 3 cases, all automated:
 1. Wrong password gives 401.

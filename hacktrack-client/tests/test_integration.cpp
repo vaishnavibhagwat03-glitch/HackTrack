@@ -30,6 +30,21 @@ TEST("1. Login with wrong password: 401 shown") {
     CHECK_EQ(app.queue().retries(), 0);  // 4xx is final: not retried
 }
 
+TEST("Repeated wrong passwords lock that address out, without contacting the server") {
+    HackTrack app("127.0.0.1", port());
+    for (int i = 0; i < HackTrack::kMaxFailsPerAccount; ++i)
+        CHECK_EQ(expectError([&] { app.login({{"email", "admin@hacktrack.dev"}, {"password", "guess"}}, "203.0.113.7"); }),
+                 std::string("InvalidCredentials"));
+    int sent = app.queue().sent();
+    int status = 0;
+    try { app.login({{"email", "ADMIN@hacktrack.dev"}, {"password", "admin123"}}, "203.0.113.7"); }  // even the right password
+    catch (const ApiError& e) { status = e.status; CHECK_EQ(e.code, std::string("TooManyAttempts")); }
+    CHECK_EQ(status, 429);
+    CHECK_EQ(app.queue().sent(), sent);  // refused in the client: nothing sent
+    // Another address is not affected, and a correct sign-in there works.
+    CHECK(!app.login({{"email", "admin@hacktrack.dev"}, {"password", "admin123"}}, "198.51.100.9")["token"].get<std::string>().empty());
+}
+
 TEST("2. Server stopped: 3 retries, then network error") {
     HackTrack app("127.0.0.1", 4999);  // nothing listens here
     app.queue().retryDelayMs = 5;

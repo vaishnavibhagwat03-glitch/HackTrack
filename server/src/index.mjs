@@ -2,7 +2,7 @@
 import { createServer } from "node:http";
 import { createApp } from "./app.mjs";
 import { openDb, DEFAULT_DB } from "./db.mjs";
-import { seed } from "./seed.mjs";
+import { DEMO_PASSWORDS, seed } from "./seed.mjs";
 import { createGoogleVerifier } from "./google.mjs";
 
 const PORT = Number(process.env.PORT ?? 4000);
@@ -18,7 +18,9 @@ if (!db.prepare("SELECT 1 FROM event WHERE id = 1").get()) {
 // Sign in with Google is on when GOOGLE_CLIENT_ID is set (see DEPLOYMENT.md).
 const google = createGoogleVerifier({ clientId: process.env.GOOGLE_CLIENT_ID });
 if (google.enabled) google.ready();
-const handle = createApp(db, { google });
+// HACKTRACK_DEMO_LOGINS=off: the published demo passwords (judge123, ...) stop working.
+const demoLogins = (process.env.HACKTRACK_DEMO_LOGINS ?? "on").toLowerCase() !== "off";
+const handle = createApp(db, { google, blockedPasswords: demoLogins ? [] : Object.values(DEMO_PASSWORDS) });
 
 const server = createServer((req, res) => {
   const started = Date.now();
@@ -53,5 +55,5 @@ const server = createServer((req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`HackTrack server on http://${HOST}:${PORT}  (db: ${DEFAULT_DB}${chaos ? `, chaos ${chaos}` : ""}, Google sign-in ${google.enabled ? "on" : "off"})`);
+  console.log(`HackTrack server on http://${HOST}:${PORT}  (db: ${DEFAULT_DB}${chaos ? `, chaos ${chaos}` : ""}, Google sign-in ${google.enabled ? "on" : "off"}, demo logins ${demoLogins ? "on" : "off"})`);
 });

@@ -186,9 +186,59 @@ void HackTrack::forgetUserSessions(const std::string& userId) {
     for (const std::string& t : tokens) sessions_.remove(t);
 }
 
-json HackTrack::login(const json& body) {
+void HackTrack::refuseIfLocked(const std::string& key) {
+    const LoginAttempts* a = loginGuard_.get(key);
+    long long now = nowMs();
+    if (!a || a->lockedUntilMs <= now) return;
+    long long mins = (a->lockedUntilMs - now + 59999) / 60000;
+    trace_.ds("HashChaining<address,attempts>", "get", "locked: sign-in refused, nothing sent");
+    throw ApiError(429, "TooManyAttempts", "Too many failed sign-ins. Try again in " + std::to_string(mins) +
+                                               (mins == 1 ? " minute." : " minutes."));
+}
+
+// Counts a wrong password inside a 15-minute window; returns the new count.
+int HackTrack::countFailure(const std::string& key, int limit) {
+    long long now = nowMs();
+    const LoginAttempts* old = loginGuard_.get(key);
+    LoginAttempts a = old ? *old : LoginAttempts{};
+    if (now - a.windowStartMs > kLockoutMs) a = LoginAttempts{0, now, 0};
+    if (++a.fails >= limit) a.lockedUntilMs = now + kLockoutMs;
+    loginGuard_.put(key, a);
+    return a.fails;
+}
+
+// Drops entries whose window and lock have both expired, so the table stays small.
+void HackTrack::pruneLoginGuard() {
+    if (loginGuard_.size() < 1024) return;
+    long long now = nowMs();
+    DynArray<std::string> stale;
+    loginGuard_.forEach([&](const std::string& k, const LoginAttempts& a) {
+        if (a.lockedUntilMs <= now && now - a.windowStartMs > kLockoutMs) stale.push(k);
+    });
+    for (int i = 0; i < stale.size(); ++i) loginGuard_.remove(stale[i]);
+}
+
+json HackTrack::login(const json& body, const std::string& clientIp) {
     json b = {{"email", body.value("email", std::string())}, {"password", body.value("password", std::string())}};
-    json res = call("POST", "/v1/auth/login", &b, "", "Log in " + b["email"].get<std::string>());
+    std::string email = b["email"].get<std::string>();
+    for (char& c : email) c = (char)std::tolower((unsigned char)c);
+    const std::string addressKey = "addr " + clientIp, accountKey = "acct " + clientIp + " " + email;
+    pruneLoginGuard();
+    refuseIfLocked(addressKey);
+    refuseIfLocked(accountKey);
+    json res;
+    try {
+        res = call("POST", "/v1/auth/login", &b, "", "Log in " + b["email"].get<std::string>());
+    } catch (const ApiError& e) {
+        if (e.status == 401) {
+            int n = countFailure(accountKey, kMaxFailsPerAccount);
+            countFailure(addressKey, kMaxFailsPerAddress);
+            trace_.ds("HashChaining<address,attempts>", "put", std::to_string(n) + " of " + std::to_string(kMaxFailsPerAccount) +
+                      " failed sign-ins" + (n >= kMaxFailsPerAccount ? ": locked for 15 minutes" : ""));
+        }
+        throw;
+    }
+    loginGuard_.remove(accountKey);  // right password: this account's count starts again
     Session s{res["token"].get<std::string>(), userFrom(res["user"]), nowMs()};
     sessions_.put(s.token, s);  // token and role stored in the hash table
     users_.put(s.user.id, s.user);

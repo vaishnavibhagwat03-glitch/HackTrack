@@ -271,6 +271,7 @@ bash scripts/smoke-test.sh https://203-0-113-7.sslip.io
 - [ ] Admin signs in with the `.env` password; `admin123` is refused
 - [ ] Submission deadline is where you want it: **Administration → Event**. The demo data sets the deadline to 2 days after the database was created.
 - [ ] Optional: judges and scores filled in with the C++ demo mode (section 5)
+- [ ] Real event, not a demo? Switch the demo accounts off (section 7), after the C++ demo mode if you use it
 
 ---
 
@@ -342,6 +343,8 @@ docker compose down -v            # -v also deletes the volumes
 | HTTPS certificate not issued | DNS not pointing at the server yet, or port 80 closed | `docker compose logs proxy`; check `ping your-name` shows your IP |
 | `bind: address already in use` on port 80 | Another web server is running (often Apache or nginx) | Stop it: `sudo systemctl disable --now apache2` (or `nginx`) |
 | Admin password from `.env` is refused | The database was created before you set it | Reset the demo data (section 5) |
+| "Too many failed sign-ins" | 5 wrong passwords in 15 minutes from that address | Wait 15 minutes, or `docker compose restart client` |
+| "Demo accounts are switched off" | `HACKTRACK_DEMO_LOGINS=off` in `.env` | Set it to `on` and `docker compose up -d --build` |
 | Submissions locked ("deadline passed") | The demo deadline is 2 days after seeding | Move it in **Administration → Event**, or reset the demo data |
 
 ---
@@ -350,6 +353,8 @@ docker compose down -v            # -v also deletes the volumes
 
 - **Only Caddy is reachable from the internet.** The Node server and the C++ client listen only on Compose's private network.
 - **The admin password is private** (`.env`, never committed). The judge and participant demo accounts keep their published passwords on purpose, so visitors can try the site. Anyone can also create a participant account.
+- **Demo accounts can be switched off.** Their passwords are public, so on an open server anyone could sign in as the demo judge and submit scores. For a real event, put `HACKTRACK_DEMO_LOGINS=off` in `.env` and run `docker compose up -d --build`. The server then refuses the demo passwords (at sign-in and sign-up) and the sign-in page hides the demo cards. The C++ demo mode signs in as the demo judges, so run it before switching off. `on` brings everything back; no data is deleted.
+- **Repeated wrong passwords are locked out by the C++ client.** After 5 wrong passwords for one email from one address (or 20 for any emails), that address gets "Too many failed sign-ins" for 15 minutes. The C++ client refuses those attempts itself, without contacting the server; the table it uses (`loginGuard`) is on the Data Structures page. A correct sign-in resets the count for that email. Restarting the `client` container clears all locks: `docker compose restart client`.
 - **Fault injection** (Administration → System) makes the server fail on purpose to show the retry queue. Only the admin can use it; set it back to 0% ("Fault injection off") after the demo.
 - **Containers run as unprivileged users**, not root.
 - **Backups are your job.** The database is one file on a volume; copy it out regularly (section 5) if the data matters.

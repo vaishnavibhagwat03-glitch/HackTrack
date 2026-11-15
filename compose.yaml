@@ -16,6 +16,7 @@ services:
       HACKTRACK_ADMIN_PASSWORD: ${HACKTRACK_ADMIN_PASSWORD:?Set HACKTRACK_ADMIN_PASSWORD in .env}
       # Optional: Sign in with Google. Empty = switched off.
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      HACKTRACK_DEMO_LOGINS: ${HACKTRACK_DEMO_LOGINS:-on}
     volumes:
       - hacktrack-data:/data
     restart: unless-stopped
@@ -38,6 +39,7 @@ services:
         NEXT_PUBLIC_HIDE_ADMIN_DEMO: "1"
         # Same client ID as the server; baked into the page at build time.
         NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+        NEXT_PUBLIC_DEMO_LOGINS: ${HACKTRACK_DEMO_LOGINS:-on}
     restart: unless-stopped
 
   proxy:

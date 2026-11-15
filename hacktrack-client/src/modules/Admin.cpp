@@ -188,6 +188,7 @@ json HackTrack::inspector() {
             chainingJson(projectCache_, "projects", "project id -> project"),
             chainingJson(teamIndex_, "teamIndex", "team id -> array index"),
             chainingJson(judgeIndex_, "judgeIndex", "judge id -> array index"),
+            chainingJson(loginGuard_, "loginGuard", "address + email -> failed sign-ins (lockout)"),
         })},
         {"probing", {{"name", "inviteCodes"}, {"use", "invite code -> team id"}, {"kind", "linear probing"}, {"size", inviteCodes_.size()},
                      {"capacity", inviteCodes_.capacity()}, {"loadFactor", inviteCodes_.loadFactor()}, {"avgProbes", inviteCodes_.avgProbes()},

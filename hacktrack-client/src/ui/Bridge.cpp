@@ -4,6 +4,7 @@
 #include "Bridge.h"
 
 #include <cstdio>
+#include <cstdlib>
 #include <functional>
 #include <mutex>
 
@@ -25,6 +26,24 @@ json body(const httplib::Request& req) {
     json j = json::parse(req.body, nullptr, false);
     if (j.is_discarded()) throw ApiError(400, "InvalidJson", "Request body is not valid JSON");
     return j;
+}
+
+// The browser's address. Behind the Docker proxy (Caddy) the connection comes
+// from a private address, and Caddy puts the real one last in X-Forwarded-For.
+// From any other address the header is ignored, so it cannot be forged.
+bool privateAddress(const std::string& a) {
+    if (a.rfind("10.", 0) == 0 || a.rfind("192.168.", 0) == 0) return true;
+    if (a.rfind("172.", 0) == 0) { int b = std::atoi(a.c_str() + 4); return b >= 16 && b <= 31; }
+    return false;
+}
+
+std::string clientIp(const httplib::Request& req) {
+    std::string xff = req.get_header_value("X-Forwarded-For");
+    if (xff.empty() || !privateAddress(req.remote_addr)) return req.remote_addr;
+    std::size_t comma = xff.rfind(',');
+    std::string ip = comma == std::string::npos ? xff : xff.substr(comma + 1);
+    std::size_t s = ip.find_first_not_of(' '), e = ip.find_last_not_of(' ');
+    return s == std::string::npos ? req.remote_addr : ip.substr(s, e - s + 1);
 }
 
 std::string param(const httplib::Request& req, const char* key, const char* dflt = "") {
@@ -91,7 +110,7 @@ int runBridge(HackTrack& app, int port, const std::string& listenHost, const std
     }));
 
     // auth
-    srv.Post("/api/auth/login", wrap([&](auto& r, auto&) { return app.login(body(r)); }));
+    srv.Post("/api/auth/login", wrap([&](auto& r, auto&) { return app.login(body(r), clientIp(r)); }));
     srv.Post("/api/auth/signup", wrap([&](auto& r, auto&) { return app.signup(body(r)); }));
     srv.Post("/api/auth/google", wrap([&](auto& r, auto&) { return app.googleLogin(body(r)); }));
     srv.Post("/api/auth/logout", wrap([&](auto&, auto& t) { return app.logout(t); }));

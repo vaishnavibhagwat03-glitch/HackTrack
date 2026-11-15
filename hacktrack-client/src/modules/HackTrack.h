@@ -27,7 +27,14 @@ public:
     HackTrack(const std::string& serverHost, int serverPort);
 
     // ── session & auth ──
-    json login(const json& body);
+    // clientIp: the browser's address, for the failed-sign-in lockout.
+    json login(const json& body, const std::string& clientIp = "local");
+
+    // Lockout: too many wrong passwords and further attempts are refused here,
+    // without contacting the server, until the lock expires.
+    static constexpr int kMaxFailsPerAccount = 5;    // one address, one email
+    static constexpr int kMaxFailsPerAddress = 20;   // one address, any email (password spraying)
+    static constexpr long long kLockoutMs = 15 * 60 * 1000LL;
     json signup(const json& body);
     json googleLogin(const json& body);  // forwards Google's ID token; server verifies it
     json logout(const std::string& token);
@@ -108,6 +115,11 @@ private:
     HashChaining<std::string, int> judgeIndex_;       // judge id -> index in judges_
     HashChaining<std::string, Session> sessions_;     // token -> session (role)
     HashChaining<std::string, User> users_;           // user id -> user
+    struct LoginAttempts { int fails = 0; long long windowStartMs = 0; long long lockedUntilMs = 0; };
+    HashChaining<std::string, LoginAttempts> loginGuard_;  // address (+ email) -> failed sign-ins
+    void refuseIfLocked(const std::string& key);
+    int countFailure(const std::string& key, int limit);
+    void pruneLoginGuard();
     CircularList<JudgeRef> rotation_;                 // Unit 2: round-robin ring
     std::string rotationHead_;                        // judge id under the pointer between runs
 
