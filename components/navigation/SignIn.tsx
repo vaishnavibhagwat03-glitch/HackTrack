@@ -63,7 +63,7 @@ export function SignIn() {
   };
 
   return (
-    <div className="grid min-h-dvh lg:grid-cols-[1.1fr_1fr]">
+    <div className="grid min-h-dvh grid-cols-1 lg:grid-cols-[1.1fr_1fr]">
       <section className="relative hidden overflow-hidden border-r border-line bg-[#070708] lg:flex lg:flex-col lg:justify-between lg:p-12">
         <EventGrid cells={24} seed={11} />
         <Link href="/" className="relative"><Logo /></Link>

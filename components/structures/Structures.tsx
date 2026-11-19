@@ -168,9 +168,9 @@ export function Structures({ user }: { user: User }) {
       <PageHeader eyebrow={<><Binary className="size-3.5" />Live from the C++ client · refreshes every 3 s</>} title="Data Structures"
         meta={<><span>Hand-written C++17 templates</span><span>No STL containers</span><span>Cache {d.cache.hits} hits / {d.cache.misses} misses</span></>} />
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <Panel title={<Unit n={6}>Hashing · separate chaining</Unit>} meta="O(1) AVERAGE" className="xl:col-span-2">
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
             {d.hashing.map((h) => (
               <div key={h.name}>
                 <p className="text-[14px] text-fg">{h.name}</p>

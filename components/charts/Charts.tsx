@@ -49,6 +49,13 @@ function Tip({ x, y, children, width }: { x: number; y: number; children: React.
 
 const PAD = { l: 34, r: 8, t: 12, b: 24 };
 
+/** X-axis labels: about one per 56 px (at most 6), always the last, never one that crowds the last. */
+function showTick(i: number, n: number, innerWidth: number) {
+  const step = Math.ceil(n / Math.max(2, Math.min(6, Math.floor(innerWidth / 56))));
+  const last = n - 1;
+  return i === last || (i % step === 0 && last - i >= step / 2);
+}
+
 export function AreaChart({ data, height = 200, format = (v) => String(v), caption }: { data: Datum[]; height?: number; format?: (v: number) => string; caption: string }) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
@@ -63,7 +70,7 @@ export function AreaChart({ data, height = 200, format = (v) => String(v), capti
   return (
     <div ref={ref} className="relative" style={{ height }}>
       {width > 0 && (
-        <svg width={width} height={height} aria-hidden
+        <svg width={width} height={height} aria-hidden className="absolute left-0 top-0"
           onPointerMove={(e) => {
             const r = e.currentTarget.getBoundingClientRect();
             const i = Math.round(((e.clientX - r.left - PAD.l) / iw) * (data.length - 1));
@@ -82,7 +89,7 @@ export function AreaChart({ data, height = 200, format = (v) => String(v), capti
               <text x={PAD.l - 8} y={y(max * t) + 3} textAnchor="end" className="fill-muted font-mono text-[9.5px]">{format(max * t)}</text>
             </g>
           ))}
-          {data.map((d, i) => (i % Math.ceil(data.length / 6) === 0 || i === data.length - 1) && (
+          {data.map((d, i) => showTick(i, data.length, iw) && (
             <text key={i} x={x(i)} y={height - 6} textAnchor={i === 0 ? "start" : i === data.length - 1 ? "end" : "middle"} className="fill-muted font-mono text-[9.5px]">{d.label}</text>
           ))}
           <motion.path d={area} fill="url(#area-fill)" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8 }} />
@@ -122,7 +129,7 @@ export function BarChart({ data, height = 200, format = (v) => String(v), captio
   return (
     <div ref={ref} className="relative" style={{ height }}>
       {width > 0 && (
-        <svg width={width} height={height} aria-hidden onPointerLeave={() => setHover(null)}>
+        <svg width={width} height={height} aria-hidden className="absolute left-0 top-0" onPointerLeave={() => setHover(null)}>
           {[0, 0.5, 1].map((t) => (
             <g key={t}>
               <line x1={PAD.l} x2={width - PAD.r} y1={y(max * t)} y2={y(max * t)} stroke="var(--color-line)" />
@@ -206,7 +213,7 @@ export function PairedBars({ data, series, height = 220, caption, domain = [0, 1
       </div>
       <div ref={ref} className="relative" style={{ height }}>
         {width > 0 && (
-          <svg width={width} height={height} aria-hidden onPointerLeave={() => setHover(null)}>
+          <svg width={width} height={height} aria-hidden className="absolute left-0 top-0" onPointerLeave={() => setHover(null)}>
             {[lo, (lo + hi) / 2, hi].map((t) => (
               <g key={t}>
                 <line x1={PAD.l} x2={width - PAD.r} y1={y(t)} y2={y(t)} stroke="var(--color-line)" />

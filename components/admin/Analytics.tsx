@@ -65,7 +65,7 @@ function Benchmark() {
               </tbody>
             </table>
           </div>
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <div>
               <p className="label mb-2">Time at n = {big?.toLocaleString()} (ms)</p>
               <HBars caption="Sort time at the largest n" data={algos.map((a) => ({ label: a, sub: cell(a, big).complexity, value: cell(a, big).ms }))}
@@ -113,7 +113,7 @@ export function Analytics() {
       <PageHeader eyebrow="Admin analytics · computed by the C++ client" title="Analytics"
         meta={<><span>{d.judging.submitted} scores</span><span>{d.counts.submitted} submissions</span><span>{d.counts.votes} votes</span></>} />
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <Benchmark />
         <ChartFrame title="Submission timeline" meta={`Merge sort · ${d.timelineSortComparisons} comparisons`}>
           {d.timeline.length ? <AreaChart data={d.timeline} caption="Cumulative submissions by 6-hour window" /> : <p className="text-[13px] text-muted">No submissions yet.</p>}

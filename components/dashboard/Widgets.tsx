@@ -111,7 +111,7 @@ export function EventStatus({ title = "Submissions close in" }: { title?: string
 
 export function MetricStrip({ items }: { items: { k: string; v: number; suffix?: string; decimals?: number; delta?: string; href?: string }[] }) {
   return (
-    <dl className="no-scrollbar -mx-4 flex snap-x overflow-x-auto border-y border-line px-4 md:mx-0 md:grid md:grid-cols-[repeat(auto-fit,minmax(150px,1fr))] md:overflow-visible md:rounded-md md:border md:px-0">
+    <dl className="no-scrollbar relative -mx-4 flex snap-x overflow-x-auto border-y border-line px-4 md:mx-0 md:grid md:grid-cols-[repeat(auto-fit,minmax(150px,1fr))] md:overflow-visible md:rounded-md md:border md:px-0">
       {items.map((m) => {
         const body = (
           <>

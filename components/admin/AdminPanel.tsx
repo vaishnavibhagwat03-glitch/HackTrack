@@ -283,11 +283,13 @@ function ExportData() {
 
 function System() {
   const toast = useToast();
-  const health = useApi<{ client: { name: string; time: string }; server: { ok: boolean; ms: number; attempts: number }; serverAddress: string }>("/health", { pollMs: 5000 });
+  const health = useApi<{ client: { name: string; time: string }; server: { ok: boolean; ms: number; attempts: number; chaos?: number }; serverAddress: string }>("/health", { pollMs: 5000 });
   const ds = useApi<{ queue: { sent: number; retries: number; failures: number; maxRetries: number }; cache: { hits: number; misses: number } }>("/ds", { pollMs: 3000 });
-  const [rate, setRate] = useState(0);
+  // The server owns the failure rate; a click shows its choice until the next health poll confirms it.
+  const [picked, setPicked] = useState<number>();
+  const rate = picked ?? health.data?.server.chaos ?? 0;
   const apply = async (r: number) => {
-    try { await api("/admin/chaos", { method: "POST", body: { rate: r } }); setRate(r); toast({ tone: r ? "warn" : "ok", title: r ? `Server now fails ${Math.round(r * 100)}% of requests` : "Fault injection off", body: "Watch the retries in the protocol trace" }); }
+    try { await api("/admin/chaos", { method: "POST", body: { rate: r } }); setPicked(r); toast({ tone: r ? "warn" : "ok", title: r ? `Server now fails ${Math.round(r * 100)}% of requests` : "Fault injection off", body: "Watch the retries in the protocol trace" }); }
     catch (x) { toast({ tone: "warn", title: "Could not change", body: errorMessage(x) }); }
   };
   const undo = async () => {

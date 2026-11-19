@@ -127,6 +127,10 @@ json HackTrack::health() {
         Request r{"GET", "/v1/health", "", "", "Health check"};
         Response res = queue_.send(r);
         server = {{"ok", res.ok()}, {"status", res.status}, {"attempts", res.attempts}, {"ms", res.ms}, {"error", res.error}};
+        if (res.ok()) {
+            json b = res.parsed();
+            server["chaos"] = b.is_object() ? b.value("chaos", 0.0) : 0.0;
+        }
     } catch (...) {
         server = {{"ok", false}};
     }

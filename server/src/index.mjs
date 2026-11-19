@@ -50,6 +50,8 @@ const server = createServer((req, res) => {
     }
     const ip = String(req.headers["x-forwarded-for"] ?? req.socket.remoteAddress ?? "").split(",")[0].trim();
     const out = handle({ method: req.method, path: url.pathname, query: url.searchParams, headers: req.headers, body, ip });
+    // The admin page shows the current failure rate, so a reload does not hide it.
+    if (url.pathname === "/v1/health" && out.status === 200) out.body = { ...out.body, chaos };
     send(out.status, out.body);
   });
 });
